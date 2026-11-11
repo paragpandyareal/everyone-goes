@@ -22,7 +22,7 @@ export default function Treasurer() {
         <div className="font-semibold text-muted">Covers are paid into the Cover Fund account. Once a week one Payout moves the total to the Trips account, as a single line, so no payout can be matched to a child.</div>
       </div>
       <div className="card flex flex-wrap items-center justify-between gap-3 p-4">
-        <div><div className="text-xs font-extrabold uppercase text-muted">Not yet settled</div><div className="text-2xl font-black">{data.unsettledCount} covers = {usd(data.unsettledCents)}</div></div>
+        <div><div className="text-xs font-extrabold uppercase text-muted">Not yet settled</div><div className="text-2xl font-black">{data.unsettledCount} {data.unsettledCount === 1 ? 'cover' : 'covers'} = {usd(data.unsettledCents)}</div></div>
         <button className="btn btn-primary" disabled={busy || !data.unsettledCount} onClick={settle}>{busy ? 'Sending Payout…' : 'Settle now with one PayPal Payout'}</button>
       </div>
       <div className="grid grid-cols-3 gap-3">
@@ -30,7 +30,7 @@ export default function Treasurer() {
         <Stat label="Recorded" value={data.payments.recorded} sub="office cash and covers, identical on PayPal" />
         <Stat label="Tips" value={usd(data.payments.tips)} sub="added by families" />
       </div>
-      {(data.attention || []).length ? <Notice tone="coral">{data.attention.length} cover(s) need a person to check PayPal before anything else happens: {data.attention.map((a: any) => `${usd(a.amount_cents)} (${a.error})`).join('; ')}</Notice> : null}
+      {(data.attention || []).length ? <Notice tone="coral">{data.attention.length} {data.attention.length === 1 ? 'cover needs' : 'covers need'} a person to check PayPal before anything else happens: {data.attention.map((a: any) => `${usd(a.amount_cents)} (${a.error})`).join('; ')}</Notice> : null}
       {msg ? <Notice tone={msg.ok ? 'leaf' : 'coral'}>{msg.ok ? `Payout batch ${msg.batch} created.` : msg.message}</Notice> : null}
       <div className="grid gap-5 lg:grid-cols-2">
         <div className="card p-4">
@@ -39,7 +39,7 @@ export default function Treasurer() {
             {data.settlements.length === 0 ? <li className="py-2 text-muted">None yet.</li> : null}
             {data.settlements.map((s: any) => (
               <li key={s.id} className="py-2">
-                <div className="font-bold">{s.cover_count} covers = {usd(s.total_cents)} = Payout batch <span className="mono">{s.batch_id || '…'}</span></div>
+                <div className="font-bold">{s.cover_count} {s.cover_count === 1 ? 'cover' : 'covers'} = {usd(s.total_cents)} = Payout batch <span className="mono">{s.batch_id || '…'}</span></div>
                 <div className="flex gap-2"><Chip tone={s.status === 'SUCCESS' ? 'leaf' : s.status === 'FAILED' || s.status === 'DENIED' ? 'coral' : 'sun'}>{s.status}</Chip><span className="text-muted">{new Date(s.created_at).toLocaleString()}</span></div>
               </li>
             ))}

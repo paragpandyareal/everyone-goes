@@ -4,7 +4,7 @@ import { Nunito } from 'next/font/google';
 import { Nav, Main } from '@/components/nav';
 import { LensProvider, DemoBanner } from '@/components/lens';
 
-const nunito = Nunito({ subsets: ['latin', 'latin-ext'], variable: '--font-nunito', weight: ['400', '600', '700', '800', '900'] });
+const nunito = Nunito({ subsets: ['latin', 'latin-ext', 'vietnamese'], variable: '--font-nunito', weight: ['400', '600', '700', '800', '900'] });
 
 export const metadata: Metadata = {
   title: 'Everyone Goes',

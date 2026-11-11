@@ -6,9 +6,10 @@ import { useFramed } from './lens';
 const ROLES = [
   { href: '/teacher', label: 'Teacher' },
   { href: '/parent', label: 'Parent' },
-  { href: '/coordinator', label: 'Coordinator' },
+  { href: '/coordinator', label: 'Volunteer' },
   { href: '/sponsor', label: 'Sponsor' },
   { href: '/treasurer', label: 'Treasurer' },
+  { href: '/lead', label: 'School lead' },
   { href: '/privacy', label: 'Privacy' },
 ];
 
@@ -52,7 +53,7 @@ export function Nav() {
         <nav className="-mx-1 flex min-w-0 flex-1 gap-1 overflow-x-auto px-1 [scrollbar-width:none]">
           {ROLES.map((r) => {
             const on = path === r.href || path.startsWith(r.href + '/') || (r.href === '/parent' && path.startsWith('/help'));
-            return <Link key={r.href} href={r.href} className={`shrink-0 rounded-full px-3 py-1.5 text-sm font-extrabold whitespace-nowrap ${on ? 'bg-ink text-white' : 'text-muted hover:bg-white'}`}>{r.label}</Link>;
+            return <Link key={r.href} href={r.href} aria-current={on ? 'page' : undefined} className={`shrink-0 rounded-full px-3 py-1.5 text-sm font-extrabold whitespace-nowrap ${on ? 'bg-ink text-white' : 'text-muted hover:bg-white'}`}>{r.label}</Link>;
           })}
         </nav>
       </div>

@@ -33,57 +33,81 @@ export async function post(url: string, body: unknown): Promise<any> {
 }
 
 const TONES: Record<string, string> = {
-  leaf: 'bg-leaf-soft text-leaf', coral: 'bg-coral-soft text-coral', sun: 'bg-sun-soft text-sun', sky: 'bg-sky-soft text-sky', grey: 'bg-[#efebe4] text-muted', ink: 'bg-ink text-white',
+  leaf: 'bg-leaf-soft text-leaf', coral: 'bg-coral-soft text-coral', sun: 'bg-sun-soft text-sun', sky: 'bg-sky-soft text-sky', grey: 'bg-[#efebe4] text-muted', ink: 'bg-ink text-white', quiet: 'bg-[#f1ece4] text-ink/75',
 };
 export function Chip({ tone = 'grey', children, title }: { tone?: keyof typeof TONES | string; children: React.ReactNode; title?: string }) {
   return <span title={title} className={`chip ${TONES[tone] || TONES.grey}`}>{children}</span>;
 }
 
+// "Not yet" is not an error: an unpaid family may simply be getting help, so it stays neutral.
 export function StatusChip({ status }: { status: string }) {
-  const tone = status === 'Paid' ? 'leaf' : status === 'Part paid' ? 'sun' : status === 'Not yet' ? 'coral' : 'grey';
-  return <Chip tone={tone}>{status === 'Paid' ? '✓ ' : ''}{status}</Chip>;
+  const tone = status === 'Paid' ? 'leaf' : status === 'Part paid' ? 'sun' : status === 'Not yet' ? 'quiet' : 'grey';
+  return <Chip tone={tone}>{status === 'Paid' ? <span aria-hidden>✓</span> : null}{status === 'Not yet' ? 'Not paid yet' : status}</Chip>;
 }
 
 export function Stat({ label, value, sub, tone }: { label: string; value: React.ReactNode; sub?: React.ReactNode; tone?: string }) {
   return (
     <div className="card px-4 py-3">
-      <div className="text-xs font-extrabold uppercase tracking-wide text-muted">{label}</div>
-      <div className={`text-2xl font-black ${tone === 'leaf' ? 'text-leaf' : tone === 'coral' ? 'text-coral' : ''}`}>{value}</div>
+      <div className="eyebrow">{label}</div>
+      <div className={`text-2xl font-extrabold ${tone === 'leaf' ? 'text-leaf' : tone === 'coral' ? 'text-coral' : ''}`}>{value}</div>
       {sub ? <div className="text-xs text-muted">{sub}</div> : null}
     </div>
   );
 }
 
 export function Notice({ tone = 'sun', children }: { tone?: string; children: React.ReactNode }) {
-  return <div className={`rounded-2xl px-4 py-3 text-sm font-semibold ${TONES[tone] || TONES.sun}`}>{children}</div>;
+  return <div role="status" className={`rounded-2xl px-4 py-3 text-sm font-semibold ${TONES[tone] || TONES.sun}`}>{children}</div>;
 }
 
 export type TraceRow = { at: number; kind: string; tool: string; via: string; summary: string; paypalId?: string; debugId?: string; approvedBy?: string; ok: boolean; demo?: string };
 
-export function TracePanel({ rows, title = 'Agent and PayPal trace', model, mode, empty = 'Nothing yet.' }: { rows: TraceRow[]; title?: string; model?: string | null; mode?: string | null; empty?: string }) {
+// Repeated calls (five invoices marked paid) collapse into one row; the newest steps show first and the list is capped.
+function group(rows: TraceRow[]) {
+  const out: (TraceRow & { n: number; ids: string[] })[] = [];
+  for (const r of rows) {
+    const last = out[out.length - 1];
+    if (last && last.tool === r.tool && last.via === r.via && last.ok === r.ok && !r.demo && !last.demo) { last.n++; if (r.paypalId) last.ids.push(r.paypalId); }
+    else out.push({ ...r, n: 1, ids: r.paypalId ? [r.paypalId] : [] });
+  }
+  return out;
+}
+
+export function TracePanel({ rows, title = 'Agent and PayPal trace', model, mode, empty = 'Nothing yet.', newestFirst = false, cap = 0 }: { rows: TraceRow[]; title?: string; model?: string | null; mode?: string | null; empty?: string; newestFirst?: boolean; cap?: number }) {
+  const [all, setAll] = useState(false);
+  let g = group(rows);
+  if (newestFirst) g = g.reverse();
+  const shown = cap && !all ? g.slice(0, cap) : g;
   return (
     <div className="card overflow-hidden">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-2.5">
-        <div className="font-black">{title}</div>
-        {model ? <Chip tone={mode === 'live' ? 'sky' : 'grey'}>{mode === 'live' ? `AI · ${model}` : 'Rules (AI off)'}</Chip> : null}
+      <div className="border-b border-line px-4 py-2.5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-[15px] font-bold">{title}</h3>
+          {model ? <Chip tone={mode === 'live' ? 'sky' : 'grey'}>{mode === 'live' ? `AI · ${model}` : 'Rules (AI off)'}</Chip> : null}
+        </div>
+        <div className="mt-1 flex flex-wrap gap-x-3 text-[11px] font-bold text-muted" aria-hidden>
+          <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-leaf" />Claude</span>
+          <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-sky" />PayPal</span>
+          <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-sun" />Code check</span>
+        </div>
       </div>
-      <ol className="divide-y divide-line text-sm">
+      <ol className="divide-y divide-line text-sm" aria-live="polite">
         {rows.length === 0 ? <li className="px-4 py-3 text-muted">{empty}</li> : null}
-        {rows.map((r, i) => (
-          <li key={i} className="fade-in grid grid-cols-[auto_1fr] gap-x-3 px-4 py-2">
-            <span className={`mt-1 h-2.5 w-2.5 rounded-full ${!r.ok ? 'bg-coral' : r.kind === 'paypal' ? 'bg-sky' : r.kind === 'check' ? 'bg-sun' : 'bg-leaf'}`} />
-            <div>
+        {shown.map((r, i) => (
+          <li key={`${r.at}-${r.tool}-${i}`} className="fade-in grid grid-cols-[auto_1fr] gap-x-3 px-4 py-2">
+            <span className={`mt-1.5 h-2.5 w-2.5 rounded-full ${!r.ok ? 'bg-coral' : r.kind === 'paypal' ? 'bg-sky' : r.kind === 'check' ? 'bg-sun' : 'bg-leaf'}`}>{!r.ok ? <span className="sr-only">failed</span> : null}</span>
+            <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                <span className="mono font-bold">{r.tool}</span>
+                <span className="mono font-bold [overflow-wrap:anywhere]">{r.tool}{r.n > 1 ? <span className="ml-1 font-sans text-muted">×{r.n}</span> : null}</span>
                 <Chip tone={r.via === 'Agent Toolkit' ? 'sky' : r.via === 'REST' ? 'ink' : r.via === 'Claude' ? 'leaf' : r.via === 'Webhook' ? 'sun' : 'grey'}>{r.via}</Chip>
                 {r.approvedBy ? <Chip tone="coral">approved by {r.approvedBy}</Chip> : null}
               </div>
-              <div className="text-muted break-words">{r.demo ? <span className="italic text-ink/80">&ldquo;{r.demo}&rdquo;</span> : r.summary}</div>
-              {r.paypalId || r.debugId ? <div className="mono text-xs text-ink/70 break-all">{r.paypalId ? `PayPal ID ${r.paypalId}` : ''}{r.debugId ? ` · debug ${r.debugId}` : ''}</div> : null}
+              <div className="break-words text-muted">{r.demo ? <span className="italic text-ink/80">&ldquo;{r.demo}&rdquo;</span> : r.summary}</div>
+              {r.ids.length || r.debugId ? <div className="mono break-all text-xs text-ink/70">{r.ids.length ? `PayPal ID ${r.ids.slice(0, 3).join(', ')}${r.ids.length > 3 ? ` +${r.ids.length - 3}` : ''}` : ''}{r.debugId && r.n === 1 ? ` · debug ${r.debugId}` : ''}</div> : null}
             </div>
           </li>
         ))}
       </ol>
+      {cap && g.length > cap ? <button onClick={() => setAll(!all)} className="w-full border-t border-line px-4 py-2 text-left text-xs font-bold text-coral">{all ? 'Show fewer' : `Show all ${g.length} steps`}</button> : null}
     </div>
   );
 }

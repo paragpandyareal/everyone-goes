@@ -35,27 +35,27 @@ export default function HelpPage({ params }: { params: Promise<{ token: string }
   return (
     <div className="mx-auto max-w-[420px] space-y-4">
       <div className="card overflow-hidden">
-        <div className="flex items-center gap-3 bg-coral px-4 py-3 text-white"><Logo size={32} /><div><div className="text-xs font-bold opacity-90">Room 12 PTA</div><div className="font-black leading-tight">{data.title}</div></div></div>
+        <div className="flex items-center gap-3 bg-coral px-4 py-3 text-white"><Logo size={32} /><div><div className="text-xs font-bold opacity-90">Room 12 PTA</div><h1 className="font-extrabold leading-tight">{data.title}</h1></div></div>
         <div className="space-y-3 p-4">
           <div className="flex items-center justify-between"><div className="font-bold">{data.child}’s contribution</div><StatusChip status={data.status} /></div>
-          <div className="text-3xl font-black">{usd(data.amountCents)}</div>
+          <div className="text-3xl font-extrabold">{usd(data.amountCents)}</div>
           <div className="text-sm text-muted">Requested contribution. No child will miss this because of cost.</div>
-          {data.status !== 'Paid' && data.payUrl ? <a href={data.payUrl} target="_blank" rel="noreferrer" className="btn btn-primary w-full">Pay on PayPal</a> : null}
+          {data.status !== 'Paid' && data.payUrl ? <a href={data.payUrl} target="_blank" rel="noreferrer" className="btn btn-primary w-full !min-h-12">Pay on PayPal<span className="sr-only"> (opens in a new tab)</span></a> : null}
           {data.status === 'Paid' ? <Notice tone="leaf">All done. {data.child} is going.</Notice> : null}
         </div>
       </div>
 
       <div className="card p-4">
-        <div className="font-black">Can’t pay, or need more time?</div>
+        <h2 className="font-extrabold">Can’t pay, or need more time?</h2>
         <p className="text-sm text-muted">Tell us privately, in any language. Your teacher will not see this message. Nobody will ask for proof.</p>
-        <div className="mt-3 space-y-3">
+        <div className="mt-3 space-y-3" aria-live="polite">
           {data.thread.map((m: any) => (
             <div key={m.id} className="space-y-2">
-              <div className="ml-8 rounded-2xl rounded-br-sm bg-ink px-3 py-2 text-white [overflow-wrap:anywhere]">{m.text}</div>
-              {m.pending ? <div className="mr-8 rounded-2xl rounded-bl-sm bg-cream px-3 py-2 text-sm text-muted">Received. We’re looking at it now…</div> : null}
+              <div dir="auto" className="ml-8 rounded-2xl rounded-br-sm bg-ink px-3 py-2 text-white [overflow-wrap:anywhere]">{m.text}</div>
+              {m.pending ? <div className="mr-8 flex items-center gap-2 rounded-2xl rounded-bl-sm bg-cream px-3 py-2 text-sm text-muted"><span aria-hidden className="spin inline-block h-3.5 w-3.5 rounded-full border-2 border-muted/40 border-t-muted" />Received. We’re looking at it now…</div> : null}
               {m.reply ? (
                 <div className="mr-8 rounded-2xl rounded-bl-sm bg-leaf-soft px-3 py-2 [overflow-wrap:anywhere]">
-                  <div>{m.reply}</div>
+                  <div dir="auto">{m.reply}</div>
                   {m.replyEn && m.replyEn !== m.reply ? <div className="mt-1 border-t border-leaf/20 pt-1 text-xs italic text-muted">English: {m.replyEn}</div> : null}
                 </div>
               ) : null}
@@ -64,17 +64,17 @@ export default function HelpPage({ params }: { params: Promise<{ token: string }
         </div>
         {!waiting ? (
           <div className="mt-3 space-y-2">
-            <textarea className="input min-h-24" placeholder="Write here in your language…" value={text} onChange={(e) => setText(e.target.value)} maxLength={1000} />
-            {framed === false ? <div className="flex flex-wrap gap-1.5 text-xs">
-              <span className="font-bold text-muted">Demo examples:</span>
-              {EXAMPLES.map((x) => <button key={x.label} onClick={() => setText(x.text)} className="chip bg-sky-soft text-sky">{x.label}</button>)}
+            <textarea dir="auto" aria-label="Your message, in any language" className="input min-h-24" placeholder="Write here in your language…" value={text} onChange={(e) => setText(e.target.value)} maxLength={1000} />
+            {framed === false ? <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-dashed border-sun bg-sun-soft/70 px-2 py-1.5 text-xs">
+              <span className="font-bold text-sun">Demo only · try:</span>
+              {EXAMPLES.map((x) => <button key={x.label} onClick={() => setText(x.text)} className="chip min-h-8 bg-white px-3 text-sky">{x.label}</button>)}
             </div> : null}
-            <button className="btn btn-primary w-full" disabled={busy || text.trim().length < 2} onClick={send}>{busy ? 'Sending…' : 'Send privately'}</button>
-            {err ? <div className="text-sm font-bold text-coral">{err}</div> : null}
+            <button className="btn btn-primary w-full !min-h-12" disabled={busy || text.trim().length < 2} onClick={send}>{busy ? 'Sending…' : 'Send privately'}</button>
+            {err ? <div role="alert" className="text-sm font-bold text-coral">{err}</div> : null}
           </div>
         ) : null}
       </div>
-      <p className="px-2 text-center text-xs text-muted">An AI assistant reads your message to suggest help. A volunteer coordinator then sees only a short summary with a code, never your name or your words. If you tell us a child may be unsafe, it goes to the school’s safeguarding lead. Your words are deleted after 30 days.</p>
+      <p className="px-2 text-center text-xs text-muted">Private. An AI assistant helps us read it; a volunteer sees only a code, never your name or your words. Deleted after 30 days.</p>
     </div>
   );
 }
