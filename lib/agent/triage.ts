@@ -13,7 +13,17 @@ import { mockTriage } from './mock';
 import { softSignals } from '../ledger/abuse';
 
 const MAX_TOOLS = 10, MAX_MS = 60_000;
-export const SAFEGUARDING_BACKSTOP = /\b(hit|hits|hitting|beat|beats|hurt|hurts|abuse|abused|touch(ed|es)? me|scared to go home|afraid to go home|not safe|unsafe|bruises?|locked in|no food at home|nobody (is )?home|alone at night|kill|suicid)\b/i;
+// Safety words in the eight eval languages. A match copies the message to the school lead in addition to the AI's decision
+// (it never cancels help, so a false alarm like "he hurt his back at work" cannot block a cover).
+export const SAFEGUARDING_BACKSTOP = new RegExp([
+  String.raw`\b(hits? (me|him|her)|hitting|beats? (me|him|her)|hurts? (me|him|her)|abus(e|ed|ing)|touch(ed|es)? (me|him|her)|(scared|afraid) to go home|not safe at home|unsafe|bruises?|locked (in|up)|no food at home|alone at night|kill|suicid|self[- ]harm)\b`,
+  'le pega|me pega|abus[oa]|moretones|miedo de (volver|ir) a casa|bije (go|ją|mnie)|przemoc|siniaki|boi się wrócić do domu',
+  'đánh (con|cháu|tôi)|bạo hành|sợ về nhà|bầm tím',
+  'يضرب|ضربه|يضربه|تعنيف|خائف من العودة',
+  '打他|打她|打我|虐待|不敢回家|淤青',
+  'sinasaktan|binubugbog|takot umuwi|pasa sa katawan',
+  'bate nele|bate nela|me bate|maus[- ]tratos|abuso|medo de voltar para casa|hematomas',
+].join('|'), 'iu');
 
 const TOOLS = ([
   { name: 'get_request', description: 'Read the redacted private message, the amount still due and the collection type.', input_schema: { type: 'object', properties: {}, additionalProperties: false } },
@@ -152,8 +162,10 @@ export async function triage(requestId: string): Promise<void> {
   if (backstop) {
     const r = await one('SELECT status FROM help_request WHERE id=$1', [requestId]);
     if (r.status !== 'ROUTED_TO_LEAD') {
-      await applyOutcome(ctx, 'route_to_lead', { concern_summary: 'Safety words matched by the code backstop', reply_to_parent: null, reply_english: null });
-      await traceRun(runId, { type: 'check', name: 'safeguarding_backstop', summary: 'Safety words found, routed to the lead by code' });
+      await sql('INSERT INTO lead_item (id, request_id, text_redacted) VALUES ($1,$2,$3)', [newId('lead'), requestId, `Safety words matched by the code backstop. The payment side was handled separately.
+
+Message (redacted): ${ctx.redacted}`]);
+      await traceRun(runId, { type: 'check', name: 'safeguarding_backstop', summary: 'Safety words found: also copied to the school lead by code' });
     }
   }
 }
