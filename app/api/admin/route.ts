@@ -22,5 +22,6 @@ export const POST = wrap(async (req: Request) => {
   if (step === 'covers') return json(await seedCovers());
   if (step === 'office') return json(await seedOffice());
   if (step === 'messages') return json(await seedMessages());
+  if (step === 'eval') return json(await (await import('@/lib/agent/eval')).runEval());
   return json({ error: 'unknown step' }, 400);
 });

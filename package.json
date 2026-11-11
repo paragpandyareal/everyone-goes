@@ -10,7 +10,7 @@
     "start": "next start -p ${PORT:-3100}",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "eval": "node --env-file=.env scripts/eval/run-eval.mjs"
+    "eval": "node scripts/eval/run.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.8.0",
