@@ -58,7 +58,7 @@ export function Notice({ tone = 'sun', children }: { tone?: string; children: Re
   return <div className={`rounded-2xl px-4 py-3 text-sm font-semibold ${TONES[tone] || TONES.sun}`}>{children}</div>;
 }
 
-export type TraceRow = { at: number; kind: string; tool: string; via: string; summary: string; paypalId?: string; debugId?: string; approvedBy?: string; ok: boolean };
+export type TraceRow = { at: number; kind: string; tool: string; via: string; summary: string; paypalId?: string; debugId?: string; approvedBy?: string; ok: boolean; demo?: string };
 
 export function TracePanel({ rows, title = 'Agent and PayPal trace', model, mode, empty = 'Nothing yet.' }: { rows: TraceRow[]; title?: string; model?: string | null; mode?: string | null; empty?: string }) {
   return (
@@ -78,7 +78,7 @@ export function TracePanel({ rows, title = 'Agent and PayPal trace', model, mode
                 <Chip tone={r.via === 'Agent Toolkit' ? 'sky' : r.via === 'REST' ? 'ink' : r.via === 'Claude' ? 'leaf' : r.via === 'Webhook' ? 'sun' : 'grey'}>{r.via}</Chip>
                 {r.approvedBy ? <Chip tone="coral">approved by {r.approvedBy}</Chip> : null}
               </div>
-              <div className="text-muted break-words">{r.summary}</div>
+              <div className="text-muted break-words">{r.demo ? <span className="italic text-ink/80">&ldquo;{r.demo}&rdquo;</span> : r.summary}</div>
               {r.paypalId || r.debugId ? <div className="mono text-xs text-ink/70 break-all">{r.paypalId ? `PayPal ID ${r.paypalId}` : ''}{r.debugId ? ` · debug ${r.debugId}` : ''}</div> : null}
             </div>
           </li>

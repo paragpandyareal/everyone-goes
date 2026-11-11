@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePoll, post, usd, Chip, TracePanel, Notice, timeAgo } from '@/components/ui';
+import { LensOnly } from '@/components/lens';
 
 const CAT_TONE: Record<string, string> = { HARDSHIP: 'coral', PARTIAL: 'sun', TIMING: 'sky', QUESTION: 'sky', NOT_ATTENDING: 'grey', SAFEGUARDING: 'ink', OTHER: 'grey' };
 const STATUS: Record<string, [string, string]> = {
@@ -84,7 +85,9 @@ export default function Coordinator() {
 
         <div className="space-y-4">
           {result ? <Notice tone={result.ok ? 'leaf' : 'coral'}>{result.ok && !result.captureId ? result.message : result.ok ? <>A real PayPal payment. Capture <span className="mono">{result.captureId}</span>. Recorded on the family’s invoice the same way as cash at the office. The teacher sees Paid.</> : result.message}</Notice> : null}
-          <TracePanel rows={data?.trace?.rows || []} model={data?.trace?.model} mode={data?.trace?.mode} title={selReq ? `Trace · ${selReq.code}` : 'Agent and PayPal trace'} empty="Select a request to see every step the agent and PayPal took." />
+          <LensOnly note="A real coordinator sees only the card on the left. Here you can see each step Claude and PayPal took, including Claude's reasoning about the family's message.">
+            <TracePanel rows={data?.trace?.rows || []} model={data?.trace?.model} mode={data?.trace?.mode} title={selReq ? `Trace · ${selReq.code}` : 'Agent and PayPal trace'} empty="Select a request to see every step the agent and PayPal took." />
+          </LensOnly>
           <div className="card p-4">
             <div className="flex items-center justify-between"><div className="font-black">Sponsor pledges</div><Link href="/sponsor" className="text-sm font-bold text-coral">Sponsor page →</Link></div>
             <div className="mt-2 space-y-2">

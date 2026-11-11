@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { AgGridReact } from 'ag-grid-react';
 import { AllCommunityModule, ModuleRegistry, themeQuartz, type ColDef } from 'ag-grid-community';
 import { usePoll, post, usd, Chip, Stat, StatusChip, TracePanel, Notice } from '@/components/ui';
+import { LensOnly } from '@/components/lens';
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 const theme = themeQuartz.withParams({
@@ -120,7 +121,9 @@ export default function Teacher() {
             <p className="mt-1 text-muted">“Requested contribution. No child will miss this {data?.collection?.kind === 'TRIP' ? 'trip' : ''} because of cost. Need help or more time? Tell us privately at …”</p>
             <p className="mt-2 text-muted">You see Paid or Not yet. You never see who asked for help or how a row was paid.</p>
           </div>
-          <TracePanel rows={data?.trace || []} title="PayPal activity" />
+          <LensOnly note="The PayPal calls behind this collection, made through the PayPal Agent Toolkit. A teacher does not need this.">
+            <TracePanel rows={data?.trace || []} title="PayPal activity" />
+          </LensOnly>
         </div>
       </div>
     </div>

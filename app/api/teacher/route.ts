@@ -9,5 +9,6 @@ export const GET = wrap(async (req: Request) => {
   if (!id) return json({ empty: true });
   const v = await teacherView(id);
   const trace = await traceView(`col:${id}`);
-  return json({ ...v, trace: trace.rows.slice(-12) });
+  // Webhook rows are left out: they appear only when a parent pays on PayPal, so they would show how a row was paid.
+  return json({ ...v, trace: trace.rows.filter((r: any) => r.via !== 'Webhook').slice(-12) });
 });

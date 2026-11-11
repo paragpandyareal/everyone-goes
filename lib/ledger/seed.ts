@@ -108,6 +108,15 @@ export async function resetDemo(opts: { keepSponsors?: boolean } = {}) {
   const coll = await one('SELECT * FROM collection WHERE id=$1', [trip]);
   // Requests made after seeding go, with their traces and lead items.
   const reqs = await sql('SELECT id, sealed_family FROM help_request WHERE scripted=false');
+  // Covers made by visitors really happened on PayPal, so they stay in receipts and the treasurer's list.
+  // The demo hands their amount back to the pledge and stops counting them toward limits, so the next judge can try the flow.
+  const keep = new Set((await sql('SELECT id FROM help_request WHERE scripted=true')).map((r) => r.id));
+  for (const c of await sql("SELECT id, sealed_request, pledge_id, amount_cents FROM cover WHERE NOT demo_cleared AND status IN ('CHARGED','RECORDED')")) {
+    let reqId = ''; try { reqId = unseal(c.sealed_request); } catch { continue; }
+    if (keep.has(reqId)) continue;
+    await sql('UPDATE cover SET demo_cleared=true WHERE id=$1', [c.id]);
+    await sql("UPDATE pledge SET used_cents=GREATEST(0, used_cents-$2), status=CASE WHEN status='EXHAUSTED' THEN 'ACTIVE' ELSE status END WHERE id=$1", [c.pledge_id, c.amount_cents]);
+  }
   for (const r of reqs) { await sql('DELETE FROM ptrace WHERE scope=$1', [`req:${r.id}`]); await sql('DELETE FROM lead_item WHERE request_id=$1', [r.id]); await sql('DELETE FROM approval WHERE request_id=$1', [r.id]); }
   await sql('DELETE FROM help_request WHERE scripted=false');
   // The 6 unpaid rows go back to unpaid: cancel any changed invoice and issue a fresh one.

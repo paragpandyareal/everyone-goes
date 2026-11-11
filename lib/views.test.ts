@@ -6,7 +6,7 @@ delete process.env.TRIPS_CLIENT_ID;
 
 import { sql } from './db';
 import { seal } from './privacy/seal';
-import { teacherView, coordinatorView, sponsorView, treasurerView, parentView } from './views';
+import { teacherView, coordinatorView, sponsorView, treasurerView, parentView, traceView } from './views';
 
 const RAW = 'Przepraszam, w tym miesiącu nie damy rady, mąż stracił pracę.';
 
@@ -52,5 +52,26 @@ describe('who sees what', () => {
     expect(own).toContain('Przepraszam');
     expect(other).not.toContain('Przepraszam');
     expect(await parentView('nope')).toBeNull();
+  });
+
+  it('coordinator view leaves out safeguarding requests entirely (not even their code)', async () => {
+    await sql("INSERT INTO help_request (id, help_token, code, collection_id, sealed_family, raw_enc, status, category) VALUES ('r9','tok2','F-31','c1',$1,$2,'ROUTED_TO_LEAD','SAFEGUARDING')", [seal('f2'), seal('safety words')]);
+    const s = JSON.stringify(await coordinatorView());
+    expect(s).not.toContain('F-31');
+    expect(s).not.toContain('SAFEGUARDING');
+  });
+
+  it('trace: Claude reasoning text and PayPal IDs are sent only in the demo, never to a real school', async () => {
+    await sql("INSERT INTO agent_run (id, kind, model, mode, trace_json) VALUES ('run1','TRIAGE','m','live',$1::jsonb)", [JSON.stringify([{ at: 1, type: 'ai', name: 'reasoning', summary: 'x', demo: 'The message is in Polish, the husband lost his job' }])]);
+    await sql("INSERT INTO ptrace (scope, actor, tool, via, summary, paypal_id) VALUES ('req:r1','agent','record_payment_for_invoice','Agent Toolkit','Recorded','INV2-AAAA-BBBB')");
+    const prev = process.env.DEMO_MODE;
+    process.env.DEMO_MODE = '0';
+    const real = JSON.stringify(await traceView('req:r1', 'run1'));
+    for (const leak of ['Polish', 'husband', 'INV2-AAAA']) expect(real).not.toContain(leak);
+    expect(real).toContain('Not shown to staff');
+    process.env.DEMO_MODE = '1';
+    const demo = JSON.stringify(await traceView('req:r1', 'run1'));
+    expect(demo).toContain('husband');
+    process.env.DEMO_MODE = prev;
   });
 });

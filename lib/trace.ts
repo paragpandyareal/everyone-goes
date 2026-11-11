@@ -1,6 +1,9 @@
 // Every PayPal call the product makes is written here, so the trace panel can show tool, short args, PayPal ID and who approved it.
 import { sql } from './db';
 
+// Claude's reasoning can quote the family's words or name their language, so staff never see it and it is not stored.
+export const REASONING_HIDDEN = 'Claude reasoned before acting. Not shown to staff or stored: it can quote the family’s words.';
+
 export type TraceRow = { scope: string; actor: 'agent' | 'system' | 'coordinator' | 'teacher' | 'sponsor' | 'webhook' | 'seed'; tool: string; via: 'Agent Toolkit' | 'REST' | 'Webhook' | 'Code'; summary?: string; paypalId?: string | null; debugId?: string | null; approvedBy?: string | null; ok?: boolean };
 
 export async function ptrace(r: TraceRow) {

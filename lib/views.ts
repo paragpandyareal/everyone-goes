@@ -3,6 +3,7 @@
 import { sql, one } from './db';
 import { unseal } from './privacy/seal';
 import { counters, syncCollection, isPaidStatus } from './ledger/service';
+import { REASONING_HIDDEN } from './trace';
 
 const g = globalThis as unknown as { __egSync?: Record<string, number> };
 
@@ -41,7 +42,7 @@ export async function teacherView(collectionId: string) {
 // Coordinator: code, category, summary, amount, pledge balance. Never names, raw text or language.
 export async function coordinatorView() {
   const reqs = await sql(`SELECT r.id, r.code, r.category, r.kind_of_help, r.amount_cents, r.summary, r.status, r.confidence, r.fallback, r.scripted, r.review_reason, r.override_by, r.created_at, r.updated_at, r.pledge_id, c.title, c.kind
-    FROM help_request r JOIN collection c ON c.id=r.collection_id ORDER BY r.created_at DESC LIMIT 60`);
+    FROM help_request r JOIN collection c ON c.id=r.collection_id WHERE r.category IS DISTINCT FROM 'SAFEGUARDING' AND r.status <> 'ROUTED_TO_LEAD' ORDER BY r.created_at DESC LIMIT 60`);
   const pledges = await sql("SELECT p.id, p.cap_cents, p.used_cents, p.per_child_cap_cents, p.conditions_text, p.status, p.seeded FROM pledge p WHERE p.status IN ('ACTIVE','EXHAUSTED') ORDER BY p.created_at");
   const label = (id: string) => `P-${id.slice(-4).toUpperCase()}`;
   return {
@@ -54,7 +55,7 @@ export async function coordinatorView() {
 export async function sponsorView(pledgeId: string) {
   const p = await one('SELECT p.*, s.display_name FROM pledge p JOIN sponsor s ON s.id=p.sponsor_id WHERE p.id=$1', [pledgeId]);
   if (!p) return null;
-  const covers = await sql("SELECT amount_cents, capture_id, created_at, status FROM cover WHERE pledge_id=$1 AND status IN ('CHARGED','RECORDED') ORDER BY created_at", [pledgeId]);
+  const covers = await sql("SELECT amount_cents, capture_id, date_trunc('day', created_at) AS created_at, status FROM cover WHERE pledge_id=$1 AND status IN ('CHARGED','RECORDED') ORDER BY created_at", [pledgeId]);
   return {
     sponsor: p.display_name, status: p.status, capCents: p.cap_cents, perChildCents: p.per_child_cap_cents, usedCents: p.used_cents, conditions: p.conditions_text, seeded: p.seeded, saved: !!p.vault_id,
     covers: covers.map((c) => ({ amountCents: c.amount_cents, captureId: c.capture_id, at: c.created_at })),
@@ -89,11 +90,14 @@ export async function treasurerView() {
 }
 
 export async function traceView(scope: string, runId?: string | null) {
+  const demo = process.env.DEMO_MODE !== '0'; // demo-only material (reasoning text, PayPal IDs) is never sent to a real school
   const pay = await sql('SELECT tool, via, summary, paypal_id, debug_id, approved_by, ok, actor, created_at FROM ptrace WHERE scope=$1 ORDER BY id', [scope]);
   const run = runId ? await one('SELECT kind, model, mode, status, trace_json, created_at FROM agent_run WHERE id=$1', [runId]) : null;
   const rows = [
-    ...(run?.trace_json || []).map((t: any) => ({ at: t.at, kind: t.type, tool: t.name, via: t.type === 'check' || t.type === 'note' ? 'Code' : run?.mode === 'mock' ? 'Rules' : 'Claude', summary: t.summary, ok: t.ok !== false })),
-    ...pay.map((p) => ({ at: new Date(p.created_at).getTime(), kind: 'paypal', tool: p.tool, via: p.via, summary: p.summary, paypalId: p.paypal_id, debugId: p.debug_id, approvedBy: p.approved_by, ok: p.ok })),
+    // Reasoning rows are replaced at read time too, so runs stored before this rule never show their text.
+    ...(run?.trace_json || []).map((t: any) => ({ at: t.at, kind: t.type, tool: t.name, via: t.type === 'check' || t.type === 'note' ? 'Code' : run?.mode === 'mock' ? 'Rules' : 'Claude', summary: t.name === 'reasoning' ? REASONING_HIDDEN : t.summary, demo: demo && t.name === 'reasoning' ? t.demo : undefined, ok: t.ok !== false })),
+    // PayPal IDs (invoice, capture) could let a staff member look a family up in PayPal, so they are sent only in the demo.
+    ...pay.map((p) => ({ at: new Date(p.created_at).getTime(), kind: 'paypal', tool: p.tool, via: p.via, summary: p.summary, paypalId: demo ? p.paypal_id : undefined, debugId: demo ? p.debug_id : undefined, approvedBy: p.approved_by, ok: p.ok })),
   ].sort((a, b) => a.at - b.at);
   return { rows, model: run?.model || null, mode: run?.mode || null, status: run?.status || null };
 }

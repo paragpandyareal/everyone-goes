@@ -44,7 +44,7 @@ export const POST = wrap(async (req: Request) => {
     const name = String(b.name || "Rosa's Bakery").replace(/[^\p{L}\p{N} &'.,-]/gu, '').trim().slice(0, 60) || 'Local business';
     const t = b.terms || {};
     const tags = (Array.isArray(t.tags) ? t.tags : ['any']).filter((x: string) => ['any', 'sports_only', 'trips_only'].includes(x));
-    const restated = String(t.restated || '').slice(0, 200);
+    const restated = String(t.restated || '').slice(0, 400);
     if (!(t.cap_cents > 0 && t.cap_cents <= 100000 && t.per_child_cap_cents > 0)) return json({ error: 'Pledge needs a total cap up to $1,000 and a per child cap' }, 400);
     const sid = newId('spn'), pid = newId('plg');
     await sql('INSERT INTO sponsor (id, display_name) VALUES ($1,$2)', [sid, name]);

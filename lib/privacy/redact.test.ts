@@ -18,6 +18,8 @@ describe('redaction before any AI call', () => {
 
 describe('coordinator summary checks', () => {
   it('passes a clean summary', () => expect(checkSummary('income shock · asks for help, not time · cover $45', roster, 4500)).toEqual([]));
+  it('flags the gender of the child', () => expect(checkSummary('mark him as not attending · $45', roster, 4500).join()).toMatch(/gender/));
+  it('does not flag words that only contain he or her', () => expect(checkSummary('the trip there · other help · cover $45', roster, 4500)).toEqual([]));
   it('flags the language', () => expect(checkSummary('Polish family, income shock · cover $45', roster, 4500).join()).toMatch(/language/));
   it('flags family details', () => {
     expect(checkSummary('the only family with twins · cover $45', roster, 4500).join()).toMatch(/identifying/);

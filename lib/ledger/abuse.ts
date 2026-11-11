@@ -27,8 +27,8 @@ export type Signals = { familyCoversThisTerm: number; classCovers: number; class
 
 // Soft signals: shown as counts on the card, and they require "Approve anyway" (recorded in the trace).
 export async function softSignals(familyTagValue: string | null, collectionId: string): Promise<Signals> {
-  const fam = familyTagValue ? await one(`SELECT count(*)::int AS n FROM cover WHERE family_tag=$1 AND status IN ('CHARGED','RECORDED') AND created_at > now() - ($2 || ' days')::interval`, [familyTagValue, String(LIMITS.termDays)]) : { n: 0 };
-  const cls = await one(`SELECT count(*)::int AS n FROM cover WHERE collection_id=$1 AND status IN ('CHARGED','RECORDED')`, [collectionId]);
+  const fam = familyTagValue ? await one(`SELECT count(*)::int AS n FROM cover WHERE family_tag=$1 AND status IN ('CHARGED','RECORDED') AND NOT demo_cleared AND created_at > now() - ($2 || ' days')::interval`, [familyTagValue, String(LIMITS.termDays)]) : { n: 0 };
+  const cls = await one(`SELECT count(*)::int AS n FROM cover WHERE collection_id=$1 AND status IN ('CHARGED','RECORDED') AND NOT demo_cleared`, [collectionId]);
   const size = await one('SELECT count(*)::int AS n FROM family WHERE collection_id=$1', [collectionId]);
   const reasons: string[] = [];
   if (fam.n >= LIMITS.familyCoversPerTerm) reasons.push(`This family has already had ${fam.n} covers this term (limit ${LIMITS.familyCoversPerTerm})`);
@@ -39,15 +39,15 @@ export async function softSignals(familyTagValue: string | null, collectionId: s
 // Hard caps: cannot be overridden from the console.
 export async function hardCapProblems(pledgeId: string): Promise<string[]> {
   const out: string[] = [];
-  const p = await one("SELECT count(*)::int AS n FROM cover WHERE pledge_id=$1 AND status IN ('CHARGED','RECORDED','APPROVED') AND created_at > now() - interval '1 day'", [pledgeId]);
+  const p = await one("SELECT count(*)::int AS n FROM cover WHERE pledge_id=$1 AND status IN ('CHARGED','RECORDED','APPROVED') AND NOT demo_cleared AND created_at > now() - interval '1 day'", [pledgeId]);
   if (p.n >= LIMITS.pledgeCoversPerDay) out.push(`This pledge has paid ${p.n} covers in the last 24 hours (daily limit ${LIMITS.pledgeCoversPerDay}). It protects sponsors from a burst of charges.`);
-  const g = await one("SELECT count(*)::int AS n FROM cover WHERE status IN ('CHARGED','RECORDED','APPROVED') AND created_at > now() - interval '1 day'");
+  const g = await one("SELECT count(*)::int AS n FROM cover WHERE status IN ('CHARGED','RECORDED','APPROVED') AND NOT demo_cleared AND created_at > now() - interval '1 day'");
   if (g.n >= LIMITS.globalCoversPerDay) out.push(`The service has reached its daily limit of ${LIMITS.globalCoversPerDay} covers. Try again tomorrow.`);
   return out;
 }
 
 export async function linkRequestProblems(helpToken: string): Promise<string | null> {
-  const open = await one("SELECT id FROM help_request WHERE help_token=$1 AND status IN ('NEW','PROPOSED','CHARGING','NEEDS_SPONSOR','CHARGE_UNKNOWN') LIMIT 1", [helpToken]);
+  const open = await one("SELECT id FROM help_request WHERE help_token=$1 AND status IN ('NEW','PROPOSED','CHARGING','NEEDS_SPONSOR','CHARGE_UNKNOWN') AND NOT (status='NEW' AND created_at < now() - interval '5 minutes') LIMIT 1", [helpToken]);
   if (open) return 'You already have a message we are looking at. We will reply here.';
   const day = await one("SELECT count(*)::int AS n FROM help_request WHERE help_token=$1 AND created_at > now() - interval '1 day'", [helpToken]);
   if (day.n >= LIMITS.requestsPerLinkPerDay) return 'You have sent several messages today. Please wait until tomorrow, or speak to the school office.';

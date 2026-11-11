@@ -43,10 +43,10 @@ export default function HelpPage({ params }: { params: Promise<{ token: string }
         <div className="mt-3 space-y-3">
           {data.thread.map((m: any) => (
             <div key={m.id} className="space-y-2">
-              <div className="ml-8 rounded-2xl rounded-br-sm bg-ink px-3 py-2 text-white">{m.text}</div>
+              <div className="ml-8 rounded-2xl rounded-br-sm bg-ink px-3 py-2 text-white [overflow-wrap:anywhere]">{m.text}</div>
               {m.pending ? <div className="mr-8 rounded-2xl rounded-bl-sm bg-cream px-3 py-2 text-sm text-muted">Received. We’re looking at it now…</div> : null}
               {m.reply ? (
-                <div className="mr-8 rounded-2xl rounded-bl-sm bg-leaf-soft px-3 py-2">
+                <div className="mr-8 rounded-2xl rounded-bl-sm bg-leaf-soft px-3 py-2 [overflow-wrap:anywhere]">
                   <div>{m.reply}</div>
                   {m.replyEn && m.replyEn !== m.reply ? <div className="mt-1 border-t border-leaf/20 pt-1 text-xs italic text-muted">English: {m.replyEn}</div> : null}
                 </div>

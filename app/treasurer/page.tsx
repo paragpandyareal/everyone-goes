@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { usePoll, post, usd, Chip, Notice, TracePanel, Stat } from '@/components/ui';
+import { LensOnly } from '@/components/lens';
 
 export default function Treasurer() {
   const { data, error, reload } = usePoll<any>('/api/treasurer', 3000);
@@ -54,7 +55,9 @@ export default function Treasurer() {
           </ul>
         </div>
       </div>
-      <TracePanel rows={data.trace || []} title="Payout activity" />
+      <LensOnly note="The PayPal Payouts calls with their IDs.">
+        <TracePanel rows={data.trace || []} title="Payout activity" />
+      </LensOnly>
     </div>
   );
 }

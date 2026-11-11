@@ -39,7 +39,7 @@ export async function startRun(kind: string, mode: 'live' | 'mock' | 'eval'): Pr
   await sql('INSERT INTO agent_run (id, kind, model, mode) VALUES ($1,$2,$3,$4)', [id, kind, mode === 'mock' ? 'rules (AI off)' : MODEL, mode]);
   return id;
 }
-export async function traceRun(runId: string, row: { type: 'ai' | 'tool' | 'check' | 'note'; name: string; summary: string; ok?: boolean }) {
+export async function traceRun(runId: string, row: { type: 'ai' | 'tool' | 'check' | 'note'; name: string; summary: string; ok?: boolean; demo?: string }) {
   await sql("UPDATE agent_run SET trace_json = trace_json || $2::jsonb WHERE id=$1", [runId, JSON.stringify([{ at: Date.now(), ok: true, ...row }])]);
 }
 export async function endRun(runId: string, status: string, output: unknown, usage?: unknown) {

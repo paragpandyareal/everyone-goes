@@ -4,7 +4,7 @@
 
 > Concept demo for the PayPal AI Hackathon. PayPal sandbox only. Every person, school and business is fictional.
 
-**Try it:** _hosted demo link added at deploy_ (free hosting sleeps when idle, so the first load can take up to a minute). Sandbox logins are on the home page and in [section 9](#9-sandbox-test-logins).
+**Try it:** [everyone-goes.onrender.com](https://everyone-goes.onrender.com) (free hosting sleeps when idle, so the first load can take up to a minute). Sandbox logins are on the home page and in [section 9](#9-sandbox-test-logins).
 
 ---
 
@@ -130,8 +130,10 @@ Test accounts with test money only, also shown on the home page.
 
 | Role | Email | Password |
 |---|---|---|
-| Rosa's Bakery (sponsor) | _added at deploy_ | _added at deploy_ |
-| Parent (pays an invoice) | _added at deploy_ | _added at deploy_ |
+| Rosa's Bakery (sponsor) | `rosa.everyonegoes@example.com` | `!A7VnC5tZwGj` |
+| Parent (pays an invoice) | `parent1.everyonegoes@example.com` | `s6tNxiex*FM8` |
+
+These are PayPal sandbox accounts with test money. Please don't change their passwords, so other judges can use them too.
 
 ## 10. Run it locally
 
@@ -161,7 +163,7 @@ Run on the real PayPal sandbox on 12 Nov 2026 (Sydney time). Every spike passed,
 ## 12. Known limits
 
 - Anonymity is policy based, not cryptographic. Covers are recorded when approved, so someone watching the grid live could try to match timing. Batch recording would close this.
-- PayPal's invoice page may show Pay Later at PayPal's discretion. Everyone Goes never routes a family in hardship to credit.
+- PayPal's invoice page may show Pay Later at PayPal's discretion. Everyone Goes does not link a family who asked for help to credit: their cover is recorded for them, so they never reach a payment page.
 - Venmo on the invoice page is not shown in the sandbox, so it is not claimed.
 - The sandbox sends no real email. Parents reach invoices through links in the app and the QR code.
 - In the public demo (`DEMO_MODE=1`) the staff pages are open so judges can try them, protected by caps and rate limits.
