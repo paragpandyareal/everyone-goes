@@ -9,3 +9,7 @@ scripts/seed/.seed-state.json
 .data/
 next-env.d.ts
 *.tsbuildinfo
+
+# Private working notes, kept on the author's machine only
+HANDOFF.md
+private/

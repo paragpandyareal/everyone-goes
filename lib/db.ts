@@ -1,5 +1,5 @@
 // One small database layer. Postgres when hosted (DATABASE_URL), PGlite (Postgres in process) locally.
-// PRD 5.1 said Prisma plus Docker. Docker is not needed, so plain SQL is used, with the same Postgres dialect in both places.
+// No Prisma or Docker needed: plain SQL, with the same Postgres dialect in both places.
 import crypto from 'node:crypto';
 import { SCHEMA } from './schema';
 

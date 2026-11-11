@@ -4,6 +4,8 @@
 
 > Concept demo for the PayPal AI Hackathon. PayPal sandbox only. Every person, school and business is fictional.
 
+> **What is real.** Every invoice, payment, saved PayPal account, capture, Payout, webhook and AI call in the hosted demo is live in the PayPal sandbox and the Anthropic API. A cover moves real sandbox money from a sponsor's saved PayPal account. Families, businesses and messages are fictional. Some paid rows were recorded as office payments while seeding the demo, and are marked as seeded in the data.
+
 **Try it:** [everyone-goes.onrender.com](https://everyone-goes.onrender.com) (free hosting sleeps when idle, so the first load can take up to a minute). The home page is a **demo stage**: the real app runs inside a desktop or phone frame and shows only what that person would see, while everything outside the frame (a 4-step tour, Claude’s reasoning, every PayPal call with its ID, reset and logins) exists only for judges. Sandbox logins are on the home page and in [section 9](#9-sandbox-test-logins).
 
 ---
@@ -118,7 +120,7 @@ The agent is Claude (`claude-opus-5-5`, set with `ANTHROPIC_MODEL`) in an Anthro
 
 ## 7. Evaluation
 
-60 labelled parent messages in 8 languages, written and labelled by Claude Code (to be spot checked by the author), (English, Spanish, Polish, Vietnamese, Arabic, Mandarin, Tagalog, Portuguese) in [`eval/replies.json`](eval/replies.json). They include 3 safeguarding notes, 4 prompt-injection attempts, sarcasm, mixed messages and hardship hidden inside a question. The runner sends each through the real triage loop (same prompt, tools and code checks) with fixed test pledges and no PayPal calls. Results, the confusion matrix and **every miss** are on `/privacy`.
+60 labelled parent messages in 8 languages, written and labelled by Claude Code in a separate step from the agent prompt, (English, Spanish, Polish, Vietnamese, Arabic, Mandarin, Tagalog, Portuguese) in [`eval/replies.json`](eval/replies.json). They include 3 safeguarding notes, 4 prompt-injection attempts, sarcasm, mixed messages and hardship hidden inside a question. The runner sends each through the real triage loop (same prompt, tools and code checks) with fixed test pledges and no PayPal calls. Results, the confusion matrix and **every miss** are on `/privacy`.
 
 Run on claude-opus-5-5, 12 Nov 2026 (Sydney), raw output in [`eval/results.json`](eval/results.json):
 
@@ -195,6 +197,10 @@ Run on the real PayPal sandbox on 12 Nov 2026 (Sydney time). Every spike passed,
 
 - **Claude (Anthropic API)** is the agent inside the product.
 - **Claude Code** (Claude Opus 5.5) wrote the code, tests, sandbox spikes, evaluation set and docs with the author. Independent Claude Code agents playing hackathon judges and a red team reviewed the build, and their findings were fixed.
+
+## 14. Sources
+
+Every statistic used in the app, the README and the pitch, with its source, the exact quote and the date it was checked, is in [`docs/STATS_VERIFIED.md`](docs/STATS_VERIFIED.md). The revenue figures are a stated scenario, not a forecast; the assumptions are listed there too.
 
 ## Licence
 
