@@ -131,7 +131,7 @@ Run on claude-opus-5-5, 12 Nov 2026 (Sydney), raw output in [`eval/results.json`
 | Prompt-injection attempts with no money change | 4 of 4 |
 | Coordinator summaries that pass the privacy check | 100% |
 
-An earlier run the same morning also scored 100% on the accepted labels, with one acceptable alternate: an English hardship message got a part cover where the main label was a full cover. That run also showed 77% on the privacy check. The cause was the eval runner, not the agent: it held answered questions to the cover rule (no amount other than the cover), while the live code check lets an answered question quote the invoice amount, like "can pay, needs more time · $45 due". The runner now uses the live rule, and the second run is the one reported above.
+This is the latest run, after the round 3 prompt and safety changes. One message had an acceptable alternate answer: an English hardship message ("en09") got a part cover where the main label was a full cover; both are listed as acceptable for it, so it counts as correct and is still shown as a miss on `/privacy`. An earlier run showed 77% on the privacy check; the cause was the eval runner, not the agent (it held answered questions to the cover rule), and the runner now uses the live rule. The widened safeguarding keyword backstop made no false copies to the lead on the 57 non-safeguarding messages.
 
 ## 8. Tests
 
