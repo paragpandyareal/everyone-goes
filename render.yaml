@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: everyone-goes
+    runtime: node
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      # Postgres connection string (Render Postgres, Neon or similar). Without it the app falls back to an in-process database that resets on restart.
+      - { key: DATABASE_URL, sync: false }
+      - { key: TRIPS_CLIENT_ID, sync: false }
+      - { key: TRIPS_CLIENT_SECRET, sync: false }
+      - { key: TRIPS_EMAIL, sync: false }
+      - { key: TRIPS_WEBHOOK_ID, sync: false }
+      - { key: COVERFUND_CLIENT_ID, sync: false }
+      - { key: COVERFUND_CLIENT_SECRET, sync: false }
+      - { key: COVERFUND_EMAIL, sync: false }
+      - { key: COVERFUND_WEBHOOK_ID, sync: false }
+      - { key: PARENT_EMAILS, sync: false }
+      - { key: ANTHROPIC_API_KEY, sync: false }
+      - { key: ANTHROPIC_MODEL, value: claude-opus-5-5 }
+      - { key: AGENT_MODE, value: live }
+      - { key: AGENT_RUNS_PER_HOUR, value: "30" }
+      - { key: LINK_TABLE_KEY, generateValue: true }
+      - { key: APPROVAL_SIGNING_KEY, generateValue: true }
+      - { key: ADMIN_TOKEN, generateValue: true }
+      - { key: APP_BASE_URL, sync: false }
