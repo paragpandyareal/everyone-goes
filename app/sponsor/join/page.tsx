@@ -1,0 +1,47 @@
+'use client';
+import { useState } from 'react';
+import { post, usd, Chip, Notice } from '@/components/ui';
+
+export default function Join() {
+  const [name, setName] = useState("Rosa's Bakery");
+  const [text, setText] = useState('Up to $250 this term, at most $60 per child.');
+  const [terms, setTerms] = useState<any>(null);
+  const [mode, setMode] = useState<string>('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function read() {
+    setBusy(true); setErr(null);
+    try { const r = await post('/api/sponsor', { action: 'read', text }); setTerms(r.terms); setMode(r.mode); } catch (e: any) { setErr(e.message); }
+    setBusy(false);
+  }
+  async function go() {
+    setBusy(true); setErr(null);
+    try { const r = await post('/api/sponsor', { action: 'start', name, terms }); window.location.href = r.approveUrl; } catch (e: any) { setErr(e.message); setBusy(false); }
+  }
+  const cancelled = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('cancelled');
+  return (
+    <div className="mx-auto max-w-xl space-y-4">
+      <h1 className="text-3xl font-black">Pledge to Room 12</h1>
+      <p className="font-semibold text-muted">Cover a child whose family can’t pay, without anyone knowing who. You set the limits in plain words.</p>
+      {cancelled ? <Notice>PayPal was closed before saving. Nothing was charged. You can try again.</Notice> : null}
+      <div className="card space-y-3 p-4">
+        <label className="block text-sm font-bold">Business name<input className="input mt-1" value={name} onChange={(e) => setName(e.target.value)} maxLength={60} /></label>
+        <label className="block text-sm font-bold">Your pledge, in your own words<textarea className="input mt-1 min-h-20" value={text} onChange={(e) => { setText(e.target.value); setTerms(null); }} maxLength={400} /></label>
+        {!terms ? <button className="btn btn-primary" disabled={busy || text.length < 5} onClick={read}>{busy ? 'Reading…' : 'Continue'}</button> : null}
+      </div>
+      {terms ? (
+        <div className="card fade-in space-y-3 p-4">
+          <div className="flex flex-wrap gap-2"><Chip tone={mode === 'live' ? 'sky' : 'grey'}>{mode === 'live' ? 'Read by AI' : 'Read by rules'}</Chip><Chip tone="leaf">Total {usd(terms.cap_cents, false)}</Chip><Chip tone="leaf">Per child {usd(terms.per_child_cap_cents, false)}</Chip>{terms.tags.map((t: string) => <Chip key={t}>{t.replace('_', ' ')}</Chip>)}</div>
+          <div className="font-semibold">{terms.restated}</div>
+          <div className="rounded-2xl bg-cream p-3 text-sm">
+            You authorise <b>Room 12 PTA Cover Fund</b> to charge this PayPal account each time a contribution is covered from your pledge, up to <b>{usd(terms.cap_cents, false)}</b> in total and <b>{usd(terms.per_child_cap_cents, false)}</b> per child. You get a receipt for every charge and can stop at any time with one click.
+          </div>
+          <button className="btn w-full !bg-[#ffc439] !text-[#111] hover:!bg-[#f2b92f]" disabled={busy} onClick={go}>{busy ? 'Opening PayPal…' : 'Agree and save with PayPal'}</button>
+          <div className="text-center text-xs text-muted">Nothing is charged now. PayPal saves your account for this pledge only.</div>
+        </div>
+      ) : null}
+      {err ? <Notice tone="coral">{err}</Notice> : null}
+    </div>
+  );
+}

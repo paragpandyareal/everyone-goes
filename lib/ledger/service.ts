@@ -96,6 +96,7 @@ export async function retryUnrecorded() {
   for (const c of await sql("SELECT * FROM cover WHERE status='CHARGED' AND recorded=false AND seeded=false")) {
     const reqId = unseal(c.sealed_request);
     const req = await one('SELECT * FROM help_request WHERE id=$1', [reqId]);
+    if (!req) continue;
     const inv = await one('SELECT * FROM invoice WHERE family_id=$1', [unseal(req.sealed_family)]);
     try { await recordPayment(`req:${reqId}`, inv.paypal_invoice_id, c.amount_cents, c.public_ref, 'system'); await sql("UPDATE cover SET recorded=true, status='RECORDED' WHERE id=$1", [c.id]); } catch {}
   }
@@ -136,3 +137,10 @@ export async function counters(collectionId: string) {
 }
 
 export const isPaidStatus = isPaid;
+
+// Raw help messages are deleted after 30 days (PRD 7.1). Redacted text and the outcome stay for audit.
+export async function purgeOldMessages() {
+  const old = await sql("SELECT id FROM help_request WHERE created_at < now() - interval '30 days' AND raw_enc <> 'deleted'");
+  for (const r of old) await sql("UPDATE help_request SET raw_enc='deleted' WHERE id=$1", [r.id]);
+  return old.length;
+}

@@ -1,0 +1,42 @@
+@import "tailwindcss";
+
+@theme {
+  --color-cream: #fff8ef;
+  --color-paper: #ffffff;
+  --color-ink: #23233a;
+  --color-muted: #6b6a7d;
+  --color-line: #ece3d6;
+  --color-coral: #e4572e;
+  --color-coral-soft: #fde7df;
+  --color-leaf: #1f8a5b;
+  --color-leaf-soft: #ddf3e8;
+  --color-sun: #b7791f;
+  --color-sun-soft: #fdf1d8;
+  --color-sky: #2b6cb0;
+  --color-sky-soft: #e3eefa;
+  --font-sans: var(--font-nunito), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+html, body { background: var(--color-cream); color: var(--color-ink); }
+body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
+* { min-width: 0; }
+.card { background: var(--color-paper); border: 1px solid var(--color-line); border-radius: 18px; box-shadow: 0 1px 0 rgba(35,35,58,.03), 0 8px 24px -16px rgba(35,35,58,.18); }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; border-radius: 999px; padding: .6rem 1.15rem; font-weight: 800; transition: transform .05s, background .15s, opacity .15s; white-space: nowrap; }
+.btn:active { transform: translateY(1px); }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.btn-primary { background: var(--color-coral); color: #fff; }
+.btn-primary:hover:not(:disabled) { background: #cc4622; }
+.btn-ghost { background: transparent; border: 1.5px solid var(--color-line); color: var(--color-ink); }
+.btn-ghost:hover:not(:disabled) { background: #fff; border-color: #d9cdbb; }
+.btn-leaf { background: var(--color-leaf); color: #fff; }
+.btn-leaf:hover:not(:disabled) { background: #187049; }
+.chip { display: inline-flex; align-items: center; gap: .3rem; border-radius: 999px; padding: .12rem .6rem; font-size: .75rem; font-weight: 800; letter-spacing: .01em; white-space: nowrap; }
+.input { width: 100%; border: 1.5px solid var(--color-line); border-radius: 14px; padding: .7rem .9rem; background: #fff; font-size: 1rem; outline: none; }
+.input:focus { border-color: var(--color-coral); box-shadow: 0 0 0 3px var(--color-coral-soft); }
+.mono { font-family: var(--font-mono); }
+.fade-in { animation: fadein .35s ease-out; }
+@keyframes fadein { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.flash { animation: flash 1.6s ease-out; }
+@keyframes flash { 0% { background: #c7f0dc; } 100% { background: transparent; } }
+.ag-theme-eg { --ag-font-family: var(--font-nunito), system-ui, sans-serif; --ag-font-size: 15px; }
