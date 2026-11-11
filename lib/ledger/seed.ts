@@ -102,7 +102,7 @@ export async function parentLinks() {
 // One button reset (PRD 11.1). PayPal history is never deleted.
 export async function resetDemo(opts: { keepSponsors?: boolean } = {}) {
   const last = await one("SELECT v FROM kv WHERE k='last_reset'");
-  if (last && Date.now() - Number(last.v) < 60_000) throw new Error('Reset was used less than a minute ago');
+  if (last && Date.now() - Number(last.v) < 60_000) throw Object.assign(new Error('Reset was used less than a minute ago'), { publicMessage: 'The demo was reset less than a minute ago. Wait a minute and try again.', status: 429 });
   await sql("INSERT INTO kv (k, v) VALUES ('last_reset', $1) ON CONFLICT (k) DO UPDATE SET v=$1", [String(Date.now())]);
   const trip = await tripId();
   const coll = await one('SELECT * FROM collection WHERE id=$1', [trip]);

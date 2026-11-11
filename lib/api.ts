@@ -6,7 +6,11 @@ export const json = (body: unknown, status = 200) => NextResponse.json(body, { s
 
 export function wrap<A extends any[]>(fn: (...a: A) => Promise<Response>) {
   return async (...a: A) => {
-    try { return await fn(...a); } catch (e: any) { console.error(e); return json({ error: process.env.NODE_ENV === 'production' ? 'Something went wrong. Please try again.' : String(e?.message || e).slice(0, 300) }, 500); }
+    try { return await fn(...a); } catch (e: any) {
+      // Errors marked public (a plain message meant for the visitor) are shown as they are.
+      if (e?.publicMessage) return json({ error: e.publicMessage }, e.status || 400);
+      console.error(e); return json({ error: process.env.NODE_ENV === 'production' ? 'Something went wrong. Please try again.' : String(e?.message || e).slice(0, 300) }, 500);
+    }
   };
 }
 
