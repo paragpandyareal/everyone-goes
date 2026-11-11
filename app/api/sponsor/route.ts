@@ -66,7 +66,8 @@ export const POST = wrap(async (req: Request) => {
     if (p.vault_id) return json({ ok: true, pledgeId: p.id });
     // Only a new pledge, from the browser that made it, can be finished. A stopped pledge can never come back to life.
     if (p.status !== 'PENDING') return json({ error: 'This pledge is not waiting to be saved.' }, 409);
-    if (!isOwner(req, p) && !isAdmin(req)) return json({ error: 'Finish saving from the browser you started in.' }, 403);
+    // Pledges a sponsor starts need that sponsor's browser. Seeded ones (made by the admin, with no owner) do not.
+    if (p.owner_hash && !isOwner(req, p) && !isAdmin(req)) return json({ error: 'Finish saving from the browser you started in.' }, 403);
     const r = await exchangeSetupToken(p.setup_token);
     await ptrace({ scope: `pledge:${p.id}`, actor: 'sponsor', tool: 'create_payment_token', via: 'REST', summary: r.ok ? 'PayPal account saved. Nothing charged.' : `Failed ${r.status}`, paypalId: r.body?.customer?.id, debugId: r.debugId, ok: r.ok });
     if (!r.ok) return json({ error: `PayPal did not save the account (${r.status}, debug ${r.debugId}). Did you approve on PayPal?` }, 502);

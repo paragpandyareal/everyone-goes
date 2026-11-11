@@ -31,7 +31,9 @@ export function checkSummary(summary: string, rosterNames: string[], amountCents
   const s = summary.toLowerCase();
   if (summary.length > 90) errs.push('summary longer than 90 characters');
   if (/\[name_\d+\]|\[email\]|\[phone\]|\[address\]/i.test(summary)) errs.push('summary contains a redaction token');
-  for (const n of rosterNames.flatMap((x) => x.split(/\s+/)).filter((x) => x.length >= 3)) if (s.includes(n.toLowerCase())) errs.push('summary contains a roster name');
+  // Whole words only: a child called Ali must not make "finally" fail. Letters in any script count as word letters.
+  const esc = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  for (const n of rosterNames.flatMap((x) => x.split(/\s+/)).filter((x) => x.length >= 3)) if (new RegExp(`(?<!\\p{L})${esc(n.toLowerCase())}(?!\\p{L})`, 'u').test(s)) errs.push('summary contains a roster name');
   for (const l of LANGS) if (new RegExp(`\\b${l}\\b`).test(s)) errs.push(`summary names a language (${l})`);
   const gm = summary.match(GENDERED);
   if (gm) errs.push(`summary reveals the child's gender ("${gm[0]}"), use "the child" or "they"`);
