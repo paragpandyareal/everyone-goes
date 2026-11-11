@@ -8,6 +8,22 @@
 
 **Try it:** [everyone-goes.onrender.com](https://everyone-goes.onrender.com) (free hosting sleeps when idle, so the first load can take up to a minute). The home page is a **demo stage**: the real app runs inside a desktop or phone frame and shows only what that person would see, while everything outside the frame (a 4-step tour, Claude’s reasoning, every PayPal call with its ID, reset and logins) exists only for judges. Sandbox logins are on the home page and in [section 9](#9-sandbox-test-logins).
 
+### For judges
+- **Hosted demo, no setup:** [everyone-goes.onrender.com](https://everyone-goes.onrender.com). Press **Watch one family get help** for a guided 4-step tour (about 2 minutes). No login is needed to use the app; PayPal sandbox logins for the parent and sponsor are in [section 9](#9-sandbox-test-logins). "Reset the demo" on the home page starts it fresh.
+- **Run it yourself:** [section 10](#10-run-it-locally), with [`docs/SANDBOX_SETUP.md`](docs/SANDBOX_SETUP.md) for the PayPal sandbox accounts.
+- **Availability:** the hosted demo stays up, free of charge, until the end of the judging period (15 Dec 2026).
+- **New for this hackathon:** built from scratch during the Submission Period (November 2026).
+
+### Built with
+| Tool | How it is used |
+|---|---|
+| **PayPal Agent Toolkit** | Claude's tools and the app create, send, read, pause reminders on and record payments against PayPal invoices |
+| **PayPal REST APIs** | Invoicing v2, Vault v3 (save a sponsor's PayPal without a purchase), Orders v2 (charge it with the sponsor absent), Payments v2 refunds, Payouts, verified webhooks |
+| **Claude** (Anthropic API, `claude-opus-5-5`) | The help desk agent: reads private messages in any language, suggests a cover, part cover, more time or the safeguarding lead, writes the coordinator summary and the reply; also reads sponsor pledges written in plain words and drafts collections. See [section 6](#6-how-claude-is-used) |
+| **AG Grid** (sponsor tool) | The teacher's live class grid of who has paid |
+| **Render** (sponsor tool) | Hosts the live demo, deployed from `render.yaml` as a Blueprint |
+| Next.js, Tailwind CSS, Postgres (Neon when hosted, PGlite locally), Vitest | App, styling, database, 55 tests |
+
 ---
 
 ## 1. The problem
@@ -137,7 +153,7 @@ This is the latest run, after the round 3 prompt and safety changes. One message
 
 ## 8. Tests
 
-`npx vitest run`: 48 tests.
+`npx vitest run`: 55 tests.
 - Money path with a real database: one charge per approval, forged and replayed approvals, two requests for one invoice at once, pledge cap racing, decline handling, transient errors replayed with the same request ID, unknown outcomes reconciled, refund when the family paid at the same moment.
 - Anti-abuse: term limit across collections, class share, link limits.
 - Privacy: every role's view.
