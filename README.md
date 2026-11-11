@@ -134,7 +134,18 @@ Without `DATABASE_URL` the app uses PGlite (Postgres in process): no Docker need
 
 ## 11. Sandbox spike results
 
-_Filled in after the spikes run._ Raw results are in [`scripts/spikes/RESULTS.md`](scripts/spikes/RESULTS.md).
+Run on the real PayPal sandbox on 12 Nov 2026 (Sydney time). Every spike passed, and no fallback was needed. Raw requests, responses and debug IDs are in [`scripts/spikes/RESULTS.md`](scripts/spikes/RESULTS.md).
+
+| Spike | What it proves | Result |
+|---|---|---|
+| S0 scopes | Trips app has Invoicing and Reporting, Cover Fund app has Vault and Payouts | PASS |
+| S1a vault | A sponsor (Business account) saves PayPal once, with no purchase (Vault v3 setup token, then payment token) | PASS |
+| S1b sponsor-absent charge | The Cover Fund charges the saved sponsor later, with the sponsor not present. Order and capture both `COMPLETED` | PASS |
+| S2a invoice | Trips invoice with tips and part payment allowed, sent, QR code made | PASS |
+| S5 parent pays | A parent paid $45 plus a $2 tip through PayPal's invoice page. Invoice `PAID`, tip shown as gratuity | PASS |
+| S2b record | Reminders paused, then an OTHER payment recorded. Invoice `MARKED_AS_PAID` (the app treats this the same as `PAID`) | PASS |
+| S3 payout | Payouts batch from the Cover Fund to the Trips account, final status `SUCCESS` | PASS |
+| S4 Agent Toolkit | The PayPal Agent Toolkit created and sent an invoice itself (no REST fallback) and listed 9 invoice tools | PASS |
 
 ## 12. Known limits
 
