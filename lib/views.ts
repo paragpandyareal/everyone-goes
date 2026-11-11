@@ -34,7 +34,7 @@ export async function teacherView(collectionId: string) {
   return {
     collection: coll, collections, qr: qr?.v || null, counters: teacherCounters(await counters(collectionId)),
     // No family code, no pay link, no update time, no payment method: nothing that could link a row to a cover.
-    rows: rows.map((r) => ({ child: r.child_first, parent: r.parent_name, status: teacherStatus(r.status, r.paid_cents), paidCents: Math.min(r.paid_cents, coll.amount_cents), tipCents: r.tip_cents, seeded: r.seeded })),
+    rows: rows.map((r) => ({ child: r.child_first, parent: r.parent_name, status: teacherStatus(r.status, r.paid_cents), paidCents: Math.min(r.paid_cents, coll.amount_cents) })),
   };
 }
 

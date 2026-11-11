@@ -27,13 +27,15 @@ export default function Hub() {
       <section className="grid items-center gap-6 pt-4 md:grid-cols-[1.2fr_1fr]">
         <div className="space-y-4">
           <div className="flex items-center gap-3"><Logo size={44} /><span className="text-4xl font-black tracking-tight">Everyone Goes</span></div>
-          <h1 className="text-2xl font-black leading-snug md:text-3xl">Every school trip and club fee as a PayPal invoice, with a private “we can’t pay” link. A local business’s saved PayPal pledge pays, and the teacher only ever sees “Paid”.</h1>
+          <h1 className="text-2xl font-black leading-snug md:text-3xl">School trips on PayPal invoices, with a private “we can’t pay” link. A local sponsor pays; the teacher only sees “Paid”.</h1>
           <p className="font-semibold text-muted">Claude reads the help message in any language and strips out who sent it. One volunteer click charges the sponsor’s saved PayPal account and records the payment on the family’s invoice, exactly like cash handed in at the office.</p>
           <div className="flex flex-wrap gap-2"><Link href="/teacher" className="btn btn-primary">Start with the teacher’s grid</Link><Link href="/privacy" className="btn btn-ghost">Who sees what</Link></div>
         </div>
         <div className="card p-5 text-sm">
-          <div className="mb-2 font-black">Live in the PayPal sandbox</div>
-          <p>Every invoice, payment, saved PayPal account, capture, Payout, webhook and AI call here is live in the PayPal sandbox. A cover moves real sandbox money from a sponsor’s saved PayPal account. Families, businesses and messages are fictional. Office payments made while seeding are labelled SEEDED.</p>
+          <div className="mb-2 font-black">{data?.trips && data?.coverfund ? 'Live in the PayPal sandbox' : 'PayPal sandbox not connected'}</div>
+          {data?.trips && data?.coverfund ? (
+            <p>Every invoice, payment, saved PayPal account, capture, Payout, webhook and AI call here is live in the PayPal sandbox. A cover moves real sandbox money from a sponsor’s saved PayPal account. Families, businesses and messages are fictional. Some office payments were recorded while seeding the demo.</p>
+          ) : <p>This copy is running without PayPal sandbox credentials, so no money moves. The hosted demo is connected.</p>}
           <div className="mt-3 flex flex-wrap gap-2 text-xs font-bold">
             <Chip tone={data?.trips ? 'leaf' : 'coral'}>Trips app {data?.trips ? 'connected' : 'not set'}</Chip>
             <Chip tone={data?.coverfund ? 'leaf' : 'coral'}>Cover Fund app {data?.coverfund ? 'connected' : 'not set'}</Chip>

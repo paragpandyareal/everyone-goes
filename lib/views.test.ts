@@ -25,7 +25,7 @@ describe('who sees what', () => {
     const v = await teacherView('c1');
     const s = JSON.stringify(v.rows);
     for (const leak of ['F-07', 'F-31', 'EG-4821', 'CAP123', 'https://pay', 'RECORDED', 'PAYPAL', 'INV2']) expect(s).not.toContain(leak);
-    expect(Object.keys(v.rows[0]).sort()).toEqual(['child', 'paidCents', 'parent', 'seeded', 'status', 'tipCents']);
+    expect(Object.keys(v.rows[0]).sort()).toEqual(['child', 'paidCents', 'parent', 'status']);
     expect(v.rows.map((r: any) => r.status)).toEqual(['Paid', 'Paid']); // cover and PayPal payment look the same
     expect(Object.keys(v.counters).sort()).toEqual(['paid', 'sponsors_saved', 'tips', 'total']);
   });

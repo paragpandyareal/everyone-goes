@@ -31,13 +31,13 @@ Every number is quoted from its source in [`docs/STATS_VERIFIED.md`](docs/STATS_
 
 | Role | Sees | Never sees |
 |---|---|---|
-| Teacher or coach | Who has paid and who has not | Who asked for help, who was covered, how any row was paid, family codes |
+| Teacher or coach | Who has paid and who has not | Who asked for help, who was covered, how any row was paid (no method, tip, time or seed marker per row), family codes |
 | Parent | Their own invoice and private help page | Anyone else |
 | Coordinator (volunteer, no PayPal login) | Family code, category, amount, pledge balance, abuse signals as counts | Names, the message, its language |
 | Sponsor | Pledge used and left, number covered, their own capture IDs | Names, codes, classes |
 | Treasurer (Trips PayPal login) | Invoice payments: covers and office cash look identical | The link between a family and a cover |
 | School safeguarding lead | Safety concerns only, redacted | Payments |
-| The AI | Redacted text only | Names, emails, phones, addresses; it can propose but never pay |
+| The AI | The message with roster names, emails, phones and addresses removed | Who sent it; it can propose but never pay |
 
 ```
 Trips account (sandbox business)       Cover Fund account (sandbox business)
@@ -45,7 +45,8 @@ Trips account (sandbox business)       Cover Fund account (sandbox business)
  receives parent payments                receives each cover (sponsor absent capture)
  + covers recorded as "Received,         sends one aggregated Payout a week
    ref EG-xxxx", same as office cash  <-----------------------------------
-       Everyone Goes app: an AES-256-GCM sealed link table joins a family to a cover. No screen reads it.
+       Everyone Goes app: an AES-256-GCM sealed link table joins a family to a cover. No screen reads it,
+       and no reference appears in both PayPal accounts, so no pair of logins can join them.
 ```
 
 Tested: [`lib/views.test.ts`](lib/views.test.ts) proves no role's view leaks the family-to-cover link.
@@ -73,7 +74,7 @@ All limits are environment variables (see `env.example`).
 ## 5. PayPal integration
 
 **PayPal Agent Toolkit (`@paypal/agent-toolkit`, Trips app).** The trace shows which path ran; each has a direct REST fallback.
-- `create_invoice`, `send_invoice`, `generate_invoice_qr_code`, `get_invoice` (also an AI tool), `cancel_invoice_auto_reminder` (an AI tool), `record_payment_for_invoice`, `cancel_sent_invoice`, `send_invoice_reminder`.
+- `create_invoice`, `send_invoice`, `generate_invoice_qr_code`, `get_invoice` (also an AI tool), `cancel_invoice_auto_reminder` (an AI tool), `record_payment_for_invoice`, `cancel_sent_invoice` (demo reset).
 
 **Direct REST (Cover Fund app), because the Toolkit has no Vault, buyer-absent orders or Payouts.**
 - Vault v3 without a purchase: `POST /v3/vault/setup-tokens` (`usage_type: MERCHANT`), the sponsor approves on PayPal, `POST /v3/vault/payment-tokens`; "Stop my pledge" calls `DELETE /v3/vault/payment-tokens/{id}`.
@@ -100,7 +101,7 @@ Code guardrails: redaction before any AI call; the summary is checked by code (t
 
 ## 7. Evaluation
 
-60 hand-labelled parent messages in 8 languages (English, Spanish, Polish, Vietnamese, Arabic, Mandarin, Tagalog, Portuguese) in [`eval/replies.json`](eval/replies.json). They include 3 safeguarding notes, 4 prompt-injection attempts, sarcasm, mixed messages and hardship hidden inside a question. The runner sends each through the real triage loop (same prompt, tools and code checks) with fixed test pledges and no PayPal calls. Results, the confusion matrix and **every miss** are on `/privacy`.
+60 labelled parent messages in 8 languages, written and labelled by Claude Code (to be spot checked by the author), (English, Spanish, Polish, Vietnamese, Arabic, Mandarin, Tagalog, Portuguese) in [`eval/replies.json`](eval/replies.json). They include 3 safeguarding notes, 4 prompt-injection attempts, sarcasm, mixed messages and hardship hidden inside a question. The runner sends each through the real triage loop (same prompt, tools and code checks) with fixed test pledges and no PayPal calls. Results, the confusion matrix and **every miss** are on `/privacy`.
 
 _Results added after the run._
 

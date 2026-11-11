@@ -10,7 +10,7 @@ import { ptrace } from '../trace';
 import { pledgeProblems, coverAmountProblems, isPaid } from './rules';
 import { softSignals, hardCapProblems } from './abuse';
 
-export const publicRef = () => `EG-${crypto.randomInt(1000, 9999)}`;
+export const publicRef = () => `EG-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
 
 // ---------- invoice status ----------
 export async function syncInvoice(inv: any, force = false) {

@@ -11,6 +11,7 @@ export const GET = wrap(async () => {
   const fams = await sql('SELECT f.sort, f.help_token, f.child_first, f.code, i.status FROM family f JOIN invoice i ON i.family_id=f.id WHERE f.collection_id=$1 ORDER BY f.sort', [trip.v]);
   const hero = fams.find((f) => f.sort === HERO_INDEX);
   const payer = fams.find((f) => f.sort === 2);
+  const tester = fams.find((f) => f.sort === 22);
   const pledges = await sql("SELECT p.id, s.display_name, p.status, p.seeded FROM pledge p JOIN sponsor s ON s.id=p.sponsor_id WHERE p.status IN ('ACTIVE','EXHAUSTED') ORDER BY p.created_at");
-  return json({ seeded: true, hero: hero && { token: hero.help_token, child: hero.child_first, status: hero.status }, payer: payer && { token: payer.help_token, child: payer.child_first, status: payer.status }, pledges });
+  return json({ seeded: true, hero: hero && { token: hero.help_token, child: hero.child_first, status: hero.status }, payer: payer && { token: payer.help_token, child: payer.child_first, status: payer.status }, tester: tester && { token: tester.help_token, child: tester.child_first, status: tester.status }, pledges });
 });

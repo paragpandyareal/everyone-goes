@@ -10,7 +10,7 @@ const theme = themeQuartz.withParams({
   borderColor: '#ece3d6', rowBorder: { color: '#f2ebe0' }, wrapperBorderRadius: 16, accentColor: '#e4572e', backgroundColor: '#ffffff', rowHeight: 46, headerHeight: 42,
 });
 
-type Row = { child: string; parent: string; status: string; paidCents: number; tipCents: number; seeded: boolean; updatedAt: string; payUrl: string | null };
+type Row = { child: string; parent: string; status: string; paidCents: number };
 
 export default function Teacher() {
   const [collection, setCollection] = useState<string | null>(null);
@@ -37,8 +37,6 @@ export default function Teacher() {
     { field: 'status', headerName: 'Status', flex: 1, minWidth: 110, cellRenderer: (p: any) => <StatusChip status={p.value} />, sort: 'asc', comparator: (a: string, b: string) => order(a) - order(b) },
     { field: 'parent', headerName: 'Parent or carer', flex: 1.4, minWidth: 150, hide: narrow },
     { field: 'paidCents', headerName: 'Paid', flex: 0.8, minWidth: 90, valueFormatter: (p: any) => (p.value ? usd(p.value) : '–') },
-    { field: 'tipCents', headerName: 'Tip', flex: 0.7, minWidth: 80, hide: narrow, valueFormatter: (p: any) => (p.value ? `+${usd(p.value)}` : '') },
-    { field: 'seeded', headerName: '', width: 96, hide: narrow, cellRenderer: (p: any) => (p.value ? <Chip title="Recorded as an office payment while seeding the demo">SEEDED</Chip> : null) },
   ], [narrow]);
 
   async function makeDraft() {
@@ -96,7 +94,7 @@ export default function Teacher() {
       {c ? (
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           <Stat label="Paid" value={`${c.paid} of ${c.total}`} sub={notYet ? `${notYet} not yet` : 'Everyone is going'} tone={notYet ? undefined : 'leaf'} />
-          <Stat label="Not yet" value={notYet} sub="a gentle reminder goes automatically" tone={notYet ? 'coral' : undefined} />
+          <Stat label="Not yet" value={notYet} sub="waiting to pay or to ask for help" tone={notYet ? 'coral' : undefined} />
           <Stat label="Tips received" value={usd(c.tips)} sub="added by families on PayPal" />
           <Stat label="Local sponsors" value={c.sponsors_saved} sub="saved on PayPal, ready to help" />
         </div>

@@ -23,11 +23,12 @@ export async function deletePaymentToken(vaultId: string) {
   return pp('coverfund', 'DELETE', `/v3/vault/payment-tokens/${vaultId}`);
 }
 
-// Sponsor absent charge. The description never names a class, trip or family.
+// Sponsor absent charge. The description never names a class, trip or family, and the order carries only the internal
+// cover id: the EG reference written on the family's invoice never appears in the Cover Fund account, so no pair of logins can join them.
 export async function chargeVault(coverId: string, publicRef: string, vaultId: string, amountCents: number) {
   return pp('coverfund', 'POST', '/v2/checkout/orders', {
     intent: 'CAPTURE',
-    purchase_units: [{ reference_id: coverId, invoice_id: publicRef, description: 'Covered contribution', amount: { currency_code: 'USD', value: value(amountCents) } }],
+    purchase_units: [{ reference_id: coverId, invoice_id: coverId, description: 'Covered contribution', amount: { currency_code: 'USD', value: value(amountCents) } }],
     payment_source: { paypal: { vault_id: vaultId } },
   }, { requestId: `eg-cover-${coverId}` });
 }
