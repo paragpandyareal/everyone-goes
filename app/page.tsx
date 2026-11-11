@@ -21,6 +21,23 @@ const EXAMPLES = [
   { label: 'Spanish · needs time', text: '¿Puedo pagar el día 28 cuando cobro?' },
   { label: 'Vietnamese · can’t pay', text: 'Xin lỗi, tháng này nhà tôi không đủ tiền đóng cho chuyến đi.' },
 ];
+const STEPS: [string, string][] = [
+  ["PayPal invoice", "Every family gets the same invoice, with a private “can’t pay?” link."],
+  ["Claude reads it", "Any language. Names and details are removed first. It suggests a full cover, a part cover, more time, or the safeguarding lead."],
+  ["A volunteer approves", "They see a code and $45. Never a name or the message."],
+  ["A sponsor’s PayPal pays", "A local business saved its PayPal once. The payment is recorded like cash at the office."],
+];
+
+// Detail for people who want it; the headline and key facts stay visible.
+function Fold({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <details className="group mt-auto pt-4">
+      <summary className="flex min-h-9 cursor-pointer list-none items-center gap-1 text-sm font-bold text-coral">{label} <span aria-hidden className="inline-block transition group-open:rotate-90">▸</span></summary>
+      <div className="mt-2 border-t border-line pt-3 text-sm">{children}</div>
+    </details>
+  );
+}
+
 const roleOf = (p: string): Role => (p.startsWith('/help') || p === '/parent' ? 'parent' : p.startsWith('/coordinator') ? 'coordinator' : p.startsWith('/sponsor') ? 'sponsor' : p.startsWith('/treasurer') ? 'treasurer' : p.startsWith('/lead') ? 'lead' : 'teacher');
 
 export default function Home() {
@@ -152,38 +169,48 @@ export default function Home() {
         </div>
 
         <div className="grid gap-4 lg:grid-cols-3">
-          <article className="card p-5">
+          <article className="card flex flex-col p-5">
             <div className="eyebrow">The problem</div>
-            <h2 className="mt-1 text-xl font-extrabold">The families who most need help are the ones who never ask</h2>
+            <h2 className="mt-1 text-xl font-extrabold leading-snug">The families who most need help are the ones who never ask</h2>
             <p className="mt-2 text-sm text-muted">Asking means outing yourself to the teacher. So children quietly miss out.</p>
-            <ul className="mt-3 space-y-2 text-sm">
-              <li><b className="text-lg">More than 93%</b> of teachers have students whose families can’t afford all their school supplies <span className="text-xs text-muted">(AdoptAClassroom.org, 2026 Teacher Impact Survey)</span></li>
-              <li><b className="text-lg">$895</b> spent by teachers of their own money on school supplies in 2024–25, on average, up 49% from $600 in 2015. Their school’s median supply budget is $200, and 97% say it isn’t enough <span className="text-xs text-muted">(AdoptAClassroom.org, 2025 Teacher Spending Survey, 3,700 teachers)</span></li>
-              <li><b>California already promises</b> no pupil misses a field trip for lack of funds, and tells school boards to line up community groups to pay <span className="text-xs text-muted">(Education Code 35330, California only)</span>. Nobody built the tool. We did.</li>
-            </ul>
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <div className="rounded-xl bg-cream p-3"><div className="text-2xl font-extrabold text-coral">93%+</div><div className="text-xs font-semibold text-muted">of teachers have students whose families can’t afford all their school supplies</div></div>
+              <div className="rounded-xl bg-cream p-3"><div className="text-2xl font-extrabold text-coral">Law</div><div className="text-xs font-semibold text-muted">California: no pupil may miss a field trip for lack of funds</div></div>
+            </div>
+            <Fold label="More numbers and sources">
+              <ul className="space-y-2">
+                <li><b>More than 93%</b> of teachers have students whose families can’t afford all their school supplies. <span className="text-muted">AdoptAClassroom.org, 2026 Teacher Impact Survey.</span></li>
+                <li><b>$895</b> spent by teachers of their own money on school supplies in 2024–25, on average, up 49% from $600 in 2015. Their school’s median supply budget is $200, and 97% say it isn’t enough. <span className="text-muted">AdoptAClassroom.org, 2025 Teacher Spending Survey, 3,700 teachers.</span></li>
+                <li><b>California Education Code 35330</b> promises no pupil misses a field trip for lack of funds, and tells school boards to line up community groups to pay. <span className="text-muted">California only.</span> Nobody built the tool. We did.</li>
+              </ul>
+            </Fold>
           </article>
-          <article className="card p-5">
+          <article className="card flex flex-col p-5">
             <div className="eyebrow">How we solve it</div>
-            <h2 className="mt-1 text-xl font-extrabold">Everyone gets the same invoice. Only one family knows theirs was covered.</h2>
-            <ol className="mt-3 space-y-3 text-sm">
-              {[
-                ['PayPal invoice', 'Every family gets the same invoice, with a private “can’t pay?” link.'],
-                ['Claude reads it', 'Any language. Names and details are removed first. It suggests a full cover, a part cover, more time, or the safeguarding lead.'],
-                ['A volunteer approves', 'They see a code and $45. Never a name or the message.'],
-                ['A sponsor’s PayPal pays', 'A local business saved its PayPal once. The payment is recorded like cash at the office.'],
-              ].map(([t, d], i) => <li key={t} className="flex gap-3"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-ink text-xs font-extrabold text-white">{i + 1}</span><span><b>{t}.</b> <span className="text-muted">{d}</span></span></li>)}
+            <h2 className="mt-1 text-xl font-extrabold leading-snug">Everyone gets the same invoice. Only one family knows theirs was covered.</h2>
+            <ol className="mt-4 space-y-2 text-sm">
+              {STEPS.map(([t], i) => <li key={t} className="flex items-center gap-3"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-ink text-xs font-extrabold text-white">{i + 1}</span><b>{t}</b></li>)}
             </ol>
+            <Fold label="How each step works">
+              <ol className="space-y-2">{STEPS.map(([t, d], i) => <li key={t}><b>{i + 1}. {t}.</b> <span className="text-muted">{d}</span></li>)}</ol>
+            </Fold>
           </article>
-          <article className="card p-5">
+          <article className="card flex flex-col p-5">
             <div className="eyebrow">What’s in it for PayPal</div>
-            <h2 className="mt-1 text-xl font-extrabold">Every school letter brings families to PayPal</h2>
-            <ul className="mt-3 space-y-2.5 text-sm">
-              <li><b>New customers through the school letter.</b> <span className="text-muted">Each collection puts about 25 families and a local business on PayPal.</span></li>
-              <li><b>Saved accounts, repeat payments.</b> <span className="text-muted">Sponsors save PayPal once (Vault) and are charged per child helped, even while away.</span></li>
-              <li><b>The Agent Toolkit doing real work.</b> <span className="text-muted">Claude creates, reads, pauses and records PayPal invoices, with code checks and a human approving every charge.</span></li>
-              <li><b>Revenue, as a scenario.</b> <span className="text-muted">10,000 organisers × 6 collections a year × 25 families × $60, at PayPal’s invoice rate (3.49% + $0.49) ≈ $3.9M a year. Less if families pay by card. The bigger prize is the channel.</span></li>
-              <li><b>Who pays the fee.</b> <span className="text-muted">Never the family. As with any PayPal invoice, the organiser’s account absorbs it, about $2.60 on $60. Tips families add, and PayPal’s charity rate for registered PTAs, can offset it.</span></li>
+            <h2 className="mt-1 text-xl font-extrabold leading-snug">Every school letter brings families to PayPal</h2>
+            <ul className="mt-4 space-y-2 text-sm">
+              <li className="flex gap-2"><span aria-hidden className="text-leaf">●</span><span><b>New customers.</b> <span className="text-muted">About 25 families and a local business per collection.</span></span></li>
+              <li className="flex gap-2"><span aria-hidden className="text-leaf">●</span><span><b>Saved accounts, repeat payments.</b> <span className="text-muted">Sponsors save PayPal once.</span></span></li>
+              <li className="flex gap-2"><span aria-hidden className="text-leaf">●</span><span><b>The Agent Toolkit doing real work.</b> <span className="text-muted">Claude acts on PayPal invoices.</span></span></li>
             </ul>
+            <Fold label="The numbers">
+              <ul className="space-y-2">
+                <li><b>Saved accounts (Vault).</b> <span className="text-muted">Sponsors save PayPal once and are charged per child helped, even while away.</span></li>
+                <li><b>Agent Toolkit.</b> <span className="text-muted">Claude creates, reads, pauses and records PayPal invoices, with code checks and a human approving every charge.</span></li>
+                <li><b>Revenue, as a scenario.</b> <span className="text-muted">10,000 organisers × 6 collections a year × 25 families × $60, at PayPal’s invoice rate (3.49% + $0.49) ≈ $3.9M a year. Less if families pay by card. The bigger prize is the channel.</span></li>
+                <li><b>Who pays the fee.</b> <span className="text-muted">Never the family. As with any PayPal invoice, the organiser’s account absorbs it, about $2.60 on $60. Tips families add, and PayPal’s charity rate for registered PTAs, can offset it.</span></li>
+              </ul>
+            </Fold>
           </article>
         </div>
       </section>
