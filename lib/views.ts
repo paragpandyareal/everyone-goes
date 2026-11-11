@@ -30,7 +30,8 @@ export async function teacherView(collectionId: string) {
   const qr = await one('SELECT v FROM kv WHERE k=$1', [`qr:${collectionId}`]);
   return {
     collection: coll, collections, qr: qr?.v || null, counters: await counters(collectionId),
-    rows: rows.map((r) => ({ child: r.child_first, parent: r.parent_name, status: teacherStatus(r.status, r.paid_cents), paidCents: Math.min(r.paid_cents, coll.amount_cents), tipCents: r.tip_cents, seeded: r.seeded, updatedAt: r.updated_at, payUrl: r.pay_url })),
+    // No family code, no pay link, no update time, no payment method: nothing that could link a row to a cover.
+    rows: rows.map((r) => ({ child: r.child_first, parent: r.parent_name, status: teacherStatus(r.status, r.paid_cents), paidCents: Math.min(r.paid_cents, coll.amount_cents), tipCents: r.tip_cents, seeded: r.seeded })),
   };
 }
 
@@ -64,25 +65,30 @@ export async function parentView(token: string) {
     FROM family f JOIN collection c ON c.id=f.collection_id JOIN invoice i ON i.family_id=f.id WHERE f.help_token=$1`, [token]);
   if (!f) return null;
   const reqs = await sql('SELECT id, raw_enc, status, reply_text, reply_en, created_at FROM help_request WHERE help_token=$1 ORDER BY created_at', [token]);
-  const showReply = (s: string) => ['COVERED', 'ANSWERED', 'NEEDS_STAFF', 'ROUTED_TO_LEAD'].includes(s);
+  const showReply = (s: string) => ['COVERED', 'ANSWERED', 'NEEDS_STAFF', 'ROUTED_TO_LEAD', 'DECLINED'].includes(s);
+  const NEUTRAL = 'Thank you for telling us. A member of staff will follow up here soon. Your child can still go.';
   return {
     title: f.title, amountCents: f.amount_cents, status: teacherStatus(f.status, f.paid_cents), payUrl: f.pay_url, child: f.child_first,
-    thread: reqs.map((r) => ({ id: r.id, text: unseal(r.raw_enc), at: r.created_at, pending: !showReply(r.status), reply: showReply(r.status) ? r.reply_text : null, replyEn: showReply(r.status) ? r.reply_en : null })),
+    thread: reqs.map((r) => ({ id: r.id, text: r.raw_enc === 'deleted' ? '(message deleted after 30 days)' : unseal(r.raw_enc), at: r.created_at, pending: !showReply(r.status),
+      reply: showReply(r.status) ? r.reply_text || NEUTRAL : null, replyEn: showReply(r.status) ? (r.reply_text ? r.reply_en : null) : null })),
   };
 }
 
 export async function treasurerView() {
-  const covers = await sql("SELECT public_ref, amount_cents, capture_id, status, settlement_id, seeded, created_at FROM cover WHERE status IN ('CHARGED','RECORDED') ORDER BY created_at DESC");
+  // No EG reference here: the Trips account shows "Received, ref EG-xxxx" on invoices, so a reference would link a cover to a family.
+  const covers = await sql("SELECT amount_cents, capture_id, status, settlement_id, seeded, date_trunc('day', created_at) AS day FROM cover WHERE status IN ('CHARGED','RECORDED') ORDER BY created_at DESC");
   const settlements = await sql('SELECT * FROM settlement ORDER BY created_at DESC');
   const unsettled = covers.filter((c) => !c.settlement_id && !c.seeded);
-  return { covers, settlements, unsettledCents: unsettled.reduce((a, c) => a + c.amount_cents, 0), unsettledCount: unsettled.length };
+  const pay = await one(`SELECT count(*) FILTER (WHERE paid_via='PAYPAL')::int AS on_paypal, count(*) FILTER (WHERE status IN ('PAID','MARKED_AS_PAID') AND paid_via IS DISTINCT FROM 'PAYPAL')::int AS recorded,
+    COALESCE(sum(tip_cents),0)::int AS tips FROM invoice`);
+  return { covers, settlements, unsettledCents: unsettled.reduce((a, c) => a + c.amount_cents, 0), unsettledCount: unsettled.length, payments: pay };
 }
 
 export async function traceView(scope: string, runId?: string | null) {
   const pay = await sql('SELECT tool, via, summary, paypal_id, debug_id, approved_by, ok, actor, created_at FROM ptrace WHERE scope=$1 ORDER BY id', [scope]);
   const run = runId ? await one('SELECT kind, model, mode, status, trace_json, created_at FROM agent_run WHERE id=$1', [runId]) : null;
   const rows = [
-    ...(run?.trace_json || []).map((t: any) => ({ at: t.at, kind: t.type, tool: t.name, via: t.type === 'check' || t.type === 'note' ? 'Code' : run?.mode === 'live' ? 'Claude' : 'Rules', summary: t.summary, ok: t.ok !== false })),
+    ...(run?.trace_json || []).map((t: any) => ({ at: t.at, kind: t.type, tool: t.name, via: t.type === 'check' || t.type === 'note' ? 'Code' : run?.mode === 'mock' ? 'Rules' : 'Claude', summary: t.summary, ok: t.ok !== false })),
     ...pay.map((p) => ({ at: new Date(p.created_at).getTime(), kind: 'paypal', tool: p.tool, via: p.via, summary: p.summary, paypalId: p.paypal_id, debugId: p.debug_id, approvedBy: p.approved_by, ok: p.ok })),
   ].sort((a, b) => a.at - b.at);
   return { rows, model: run?.model || null, mode: run?.mode || null, status: run?.status || null };

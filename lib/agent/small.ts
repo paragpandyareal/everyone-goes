@@ -23,6 +23,7 @@ export async function draftCollection(sentence: string): Promise<{ draft: Draft;
       const { out, usage } = await structured<Draft>(COLLECTION_SYSTEM, `Reference date: ${new Date().toISOString().slice(0, 10)} (${new Date().toLocaleDateString('en-US', { weekday: 'long' })}).\nSentence: ${sentence.slice(0, 400)}`, DRAFT_SCHEMA);
       draft = out;
       await traceRun(runId, { type: 'ai', name: 'draft_collection', summary: `${draft.title} · ${draft.kind} · $${(draft.amount_cents / 100).toFixed(2)}${draft.due_date ? ' · due ' + draft.due_date : ''}` });
+      draft.amount_cents = Math.round(Number(draft.amount_cents) || 0);
       await endRun(runId, 'DONE', draft, usage);
     } catch (e: any) {
       draft = ruleDraft(sentence);
@@ -35,6 +36,7 @@ export async function draftCollection(sentence: string): Promise<{ draft: Draft;
     await endRun(runId, 'DONE', draft);
   }
   if (!/^Requested contribution, /i.test(draft.item_name)) draft.item_name = `Requested contribution, ${draft.item_name}`;
+  await endRun(runId, 'DONE', draft);
   return { draft, runId, mode: live ? 'live' : 'mock' };
 }
 

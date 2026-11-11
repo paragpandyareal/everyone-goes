@@ -3,7 +3,10 @@
 import crypto from 'node:crypto';
 import { sql, one, newId } from './db';
 
-const secret = () => process.env.APPROVAL_SIGNING_KEY || 'dev-only-approval-key-change-me';
+const secret = () => {
+  if (!process.env.APPROVAL_SIGNING_KEY && process.env.NODE_ENV === 'production') throw new Error('APPROVAL_SIGNING_KEY must be set in production');
+  return process.env.APPROVAL_SIGNING_KEY || 'dev-only-approval-key-change-me';
+};
 const sign = (payload: string) => crypto.createHmac('sha256', secret()).update(payload).digest('base64url');
 
 export type ApprovalClaims = { requestId: string; amountCents: number; pledgeId: string; exp: number; nonce: string };

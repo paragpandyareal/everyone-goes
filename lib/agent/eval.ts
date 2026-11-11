@@ -16,7 +16,7 @@ export async function runEval(limit = 60) {
   const items = data.items.slice(0, limit);
   const results: any[] = [];
   const work = async (it: any) => {
-    const runId = await startRun('EVAL', 'live');
+    const runId = await startRun('EVAL', 'eval');
     const ctx: TriageCtx = { requestId: `eval_${it.id}`, runId, familyId: 'eval', invoiceId: null, dueCents: 4500, kind: 'TRIP', title: 'Museum trip', redacted: redact(it.text, ['Zofia', 'Katarzyna']).text, roster: ['Zofia', 'Katarzyna'], fixturePledges: PLEDGES, evalOnly: true };
     try { await liveLoop(ctx); } catch (e: any) { ctx.outcome = { generic: String(e.message) }; }
     await endRun(runId, 'EVAL', ctx.outcome);

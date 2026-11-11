@@ -1,15 +1,18 @@
-import { json, wrap, limited } from '@/lib/api';
+import { json, wrap, limited, requireStaff } from '@/lib/api';
 import { coordinatorView, traceView } from '@/lib/views';
 import { one, sql } from '@/lib/db';
 import { mintApproval } from '@/lib/approval';
-import { performCover, retryUnrecorded, pledgesFor } from '@/lib/ledger/service';
+import { performCover, retryUnrecorded, pledgesFor, purgeOldMessages, reconcileCovers } from '@/lib/ledger/service';
 import { pledgeProblems } from '@/lib/ledger/rules';
 import { sponsorAsk } from '@/lib/agent/small';
 
 export const dynamic = 'force-dynamic';
 
 export const GET = wrap(async (req: Request) => {
+  const gate = requireStaff(req); if (gate) return gate;
   const sel = new URL(req.url).searchParams.get('request');
+  const gp = globalThis as unknown as { __egPurge?: number };
+  if (!gp.__egPurge || Date.now() - gp.__egPurge > 3600_000) { gp.__egPurge = Date.now(); purgeOldMessages().catch(() => {}); reconcileCovers().catch(() => {}); }
   const v = await coordinatorView();
   let trace = null;
   if (sel) {
@@ -21,6 +24,7 @@ export const GET = wrap(async (req: Request) => {
 
 // The coordinator's click is the approval: a signed single use token is minted and spent on the money path.
 export const POST = wrap(async (req: Request) => {
+  const gate = requireStaff(req); if (gate) return gate;
   const lim = limited(req, 'coord', 10); if (lim) return lim;
   const { action, requestId, override } = await req.json();
   if (action === 'approve') {
@@ -32,7 +36,8 @@ export const POST = wrap(async (req: Request) => {
     return json(out, out.ok ? 200 : 409);
   }
   if (action === 'decline') {
-    await sql("UPDATE help_request SET status='DECLINED', updated_at=now() WHERE id=$1 AND status IN ('PROPOSED','NEEDS_STAFF','NEEDS_SPONSOR')", [requestId]);
+    // "Pass to staff": a person follows up. Never a refusal shown to the family.
+    await sql("UPDATE help_request SET status='NEEDS_STAFF', fallback='Passed to staff by the coordinator', updated_at=now() WHERE id=$1 AND status IN ('PROPOSED','NEEDS_SPONSOR')", [requestId]);
     return json({ ok: true });
   }
   if (action === 'rematch') {

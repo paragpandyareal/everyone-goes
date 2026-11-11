@@ -9,9 +9,9 @@ let _client: Anthropic | null = null;
 const client = () => (_client ||= new Anthropic({ timeout: 90_000, maxRetries: 1 }));
 
 export async function underLimit(): Promise<boolean> {
-  const cap = Number(process.env.AGENT_RUNS_PER_HOUR || 30);
-  const r = await one("SELECT count(*)::int AS n FROM agent_run WHERE mode='live' AND created_at > now() - interval '1 hour'");
-  return (r?.n || 0) < cap;
+  const hour = Number(process.env.AGENT_RUNS_PER_HOUR || 30), day = Number(process.env.AGENT_RUNS_PER_DAY || 250);
+  const r = await one("SELECT count(*) FILTER (WHERE created_at > now() - interval '1 hour')::int AS h, count(*)::int AS d FROM agent_run WHERE mode='live' AND created_at > now() - interval '1 day'");
+  return (r?.h || 0) < hour && (r?.d || 0) < day;
 }
 
 export async function create(params: Record<string, unknown>): Promise<any> {
@@ -34,9 +34,9 @@ export async function structured<T>(system: string, user: string, schema: object
   return { out: JSON.parse(text) as T, usage: res.usage };
 }
 
-export async function startRun(kind: string, mode: 'live' | 'mock'): Promise<string> {
+export async function startRun(kind: string, mode: 'live' | 'mock' | 'eval'): Promise<string> {
   const id = newId('run');
-  await sql('INSERT INTO agent_run (id, kind, model, mode) VALUES ($1,$2,$3,$4)', [id, kind, mode === 'live' ? MODEL : 'rules (AI off)', mode]);
+  await sql('INSERT INTO agent_run (id, kind, model, mode) VALUES ($1,$2,$3,$4)', [id, kind, mode === 'mock' ? 'rules (AI off)' : MODEL, mode]);
   return id;
 }
 export async function traceRun(runId: string, row: { type: 'ai' | 'tool' | 'check' | 'note'; name: string; summary: string; ok?: boolean }) {

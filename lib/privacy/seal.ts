@@ -1,7 +1,10 @@
 // PRD 7.1. The family <-> cover join exists only as AES-256-GCM sealed references, opened inside the server code that performs a cover.
 import crypto from 'node:crypto';
 
-const key = () => crypto.createHash('sha256').update(process.env.LINK_TABLE_KEY || 'dev-only-link-table-key-change-me').digest();
+const key = () => {
+  if (!process.env.LINK_TABLE_KEY && process.env.NODE_ENV === 'production' && process.env.VITEST !== 'true') throw new Error('LINK_TABLE_KEY must be set in production');
+  return crypto.createHash('sha256').update(process.env.LINK_TABLE_KEY || 'dev-only-link-table-key-change-me').digest();
+};
 
 export function seal(plain: string): string {
   const iv = crypto.randomBytes(12);

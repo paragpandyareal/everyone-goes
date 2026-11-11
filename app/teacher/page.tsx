@@ -17,6 +17,7 @@ export default function Teacher() {
   const { data, error, reload } = usePoll<any>(`/api/teacher${collection ? `?collection=${collection}` : ''}`, 2500);
   const [sentence, setSentence] = useState('');
   const [draft, setDraft] = useState<any>(null);
+  const [runId, setRunId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const prev = useRef<Record<string, string>>({});
@@ -29,23 +30,25 @@ export default function Teacher() {
     if (Object.keys(f).length) setFlash((x) => ({ ...x, ...f }));
   }, [data]);
 
+  const [narrow, setNarrow] = useState(false);
+  useEffect(() => { const f = () => setNarrow(window.innerWidth < 640); f(); window.addEventListener('resize', f); return () => window.removeEventListener('resize', f); }, []);
   const cols = useMemo<ColDef<Row>[]>(() => [
-    { field: 'child', headerName: 'Child', flex: 1.1, minWidth: 110, cellClass: 'font-extrabold' },
-    { field: 'parent', headerName: 'Parent or carer', flex: 1.4, minWidth: 150 },
-    { field: 'status', headerName: 'Status', flex: 1, minWidth: 120, cellRenderer: (p: any) => <StatusChip status={p.value} />, sort: 'asc', comparator: (a: string, b: string) => order(a) - order(b) },
+    { field: 'child', headerName: 'Child', flex: 1.1, minWidth: 100, cellClass: 'font-extrabold' },
+    { field: 'status', headerName: 'Status', flex: 1, minWidth: 110, cellRenderer: (p: any) => <StatusChip status={p.value} />, sort: 'asc', comparator: (a: string, b: string) => order(a) - order(b) },
+    { field: 'parent', headerName: 'Parent or carer', flex: 1.4, minWidth: 150, hide: narrow },
     { field: 'paidCents', headerName: 'Paid', flex: 0.8, minWidth: 90, valueFormatter: (p: any) => (p.value ? usd(p.value) : '–') },
-    { field: 'tipCents', headerName: 'Tip', flex: 0.9, minWidth: 110, valueFormatter: (p: any) => (p.value ? `+${usd(p.value)}` : '') },
-    { field: 'seeded', headerName: '', width: 96, cellRenderer: (p: any) => (p.value ? <Chip title="Recorded as an office payment while seeding the demo">SEEDED</Chip> : null) },
-  ], []);
+    { field: 'tipCents', headerName: 'Tip', flex: 0.7, minWidth: 80, hide: narrow, valueFormatter: (p: any) => (p.value ? `+${usd(p.value)}` : '') },
+    { field: 'seeded', headerName: '', width: 96, hide: narrow, cellRenderer: (p: any) => (p.value ? <Chip title="Recorded as an office payment while seeding the demo">SEEDED</Chip> : null) },
+  ], [narrow]);
 
   async function makeDraft() {
     setBusy(true); setMsg(null);
-    try { const r = await post('/api/collections', { sentence }); setDraft(r.draft); } catch (e: any) { setMsg(e.message); }
+    try { const r = await post('/api/collections', { sentence }); setDraft(r.draft); setRunId(r.runId); } catch (e: any) { setMsg(e.message); }
     setBusy(false);
   }
   async function confirm() {
     setBusy(true); setMsg(null);
-    try { const r = await post('/api/collections', { confirm: draft, sentence, roster: draft.kind === 'CLUB_FEE' ? 'soccer' : 'room12' }); setCollection(r.id); setDraft(null); setSentence(''); reload(); } catch (e: any) { setMsg(e.message); }
+    try { const r = await post('/api/collections', { confirm: true, runId, sentence, roster: draft.kind === 'CLUB_FEE' ? 'soccer' : 'room12' }); setCollection(r.id); setDraft(null); setSentence(''); reload(); } catch (e: any) { setMsg(e.message); }
     setBusy(false);
   }
 
@@ -93,15 +96,15 @@ export default function Teacher() {
       {c ? (
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           <Stat label="Paid" value={`${c.paid} of ${c.total}`} sub={notYet ? `${notYet} not yet` : 'Everyone is going'} tone={notYet ? undefined : 'leaf'} />
-          <Stat label="Paid on PayPal" value={c.on_paypal} sub="on PayPal's invoice page" />
-          <Stat label="Office or covered" value={c.office_or_cover} sub="shown as Paid, same as cash" />
-          <Stat label="Sponsors saved on PayPal" value={c.sponsors_saved} sub={c.tips ? `${usd(c.tips)} paid forward in tips` : 'local businesses'} />
+          <Stat label="Not yet" value={notYet} sub="a gentle reminder goes automatically" tone={notYet ? 'coral' : undefined} />
+          <Stat label="Tips received" value={usd(c.tips)} sub="added by families on PayPal" />
+          <Stat label="Local sponsors" value={c.sponsors_saved} sub="saved on PayPal, ready to help" />
         </div>
       ) : null}
 
       <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
         <div style={{ height: Math.min(46 * Math.max(rows.length, 6) + 46, 1150) }} className="ag-theme-eg">
-          {data?.empty ? <Notice>No collection yet. Type one sentence above, or seed the demo class from the admin page.</Notice> : (
+          {data?.empty ? <Notice>No collection yet. Type one sentence above to create one.</Notice> : (
             <AgGridReact<Row> theme={theme} rowData={rows} columnDefs={cols} getRowId={(p) => p.data.child + p.data.parent} suppressCellFocus
               rowClassRules={{ flash: (p) => !!p.data && Date.now() - (flash[p.data.child + p.data.parent] || 0) < 1700 }} />
           )}

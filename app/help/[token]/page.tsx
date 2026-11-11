@@ -66,7 +66,7 @@ export default function HelpPage({ params }: { params: Promise<{ token: string }
           </div>
         ) : null}
       </div>
-      <p className="px-2 text-center text-xs text-muted">Only a volunteer coordinator sees a short summary with a code, never your name or your words. Your words are deleted after 30 days.</p>
+      <p className="px-2 text-center text-xs text-muted">An AI assistant reads your message to suggest help. A volunteer coordinator then sees only a short summary with a code, never your name or your words. If you tell us a child may be unsafe, it goes to the school’s safeguarding lead. Your words are deleted after 30 days.</p>
     </div>
   );
 }

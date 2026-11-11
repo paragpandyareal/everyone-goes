@@ -14,7 +14,7 @@ export const GET = wrap(async (_req: Request, { params }: P) => {
 export const POST = wrap(async (req: Request, { params }: P) => {
   const lim = limited(req, 'help', 5); if (lim) return lim;
   const { token } = await params;
-  const text = String((await req.json()).text || '').trim();
+  const text = String((await req.json()).text || '').trim().slice(0, 1000);
   if (text.length < 2) return json({ error: 'Write a short message' }, 400);
   let id: string;
   try { id = await newHelpRequest(token, text); } catch (e: any) { if (e instanceof UserFacingError) return json({ error: e.message }, 409); throw e; }

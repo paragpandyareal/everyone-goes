@@ -5,7 +5,7 @@ import { usePoll, post, usd, Chip, TracePanel, Notice, timeAgo } from '@/compone
 
 const CAT_TONE: Record<string, string> = { HARDSHIP: 'coral', PARTIAL: 'sun', TIMING: 'sky', QUESTION: 'sky', NOT_ATTENDING: 'grey', SAFEGUARDING: 'ink', OTHER: 'grey' };
 const STATUS: Record<string, [string, string]> = {
-  NEW: ['Reading…', 'grey'], NEEDS_SPONSOR: ['Waiting for a sponsor', 'sun'], PROPOSED: ['Needs your approval', 'coral'], CHARGING: ['Paying…', 'sun'], COVERED: ['Covered', 'leaf'],
+  NEW: ['Reading…', 'grey'], NEEDS_SPONSOR: ['Waiting for a sponsor', 'sun'], CHARGE_UNKNOWN: ['Checking with PayPal', 'sun'], PROPOSED: ['Needs your approval', 'coral'], CHARGING: ['Paying…', 'sun'], COVERED: ['Covered', 'leaf'],
   DECLINED: ['Declined', 'grey'], ANSWERED: ['Answered', 'leaf'], NEEDS_STAFF: ['For staff', 'sky'], ROUTED_TO_LEAD: ['Sent to school lead', 'ink'],
 };
 
@@ -41,7 +41,7 @@ export default function Coordinator() {
           <h1 className="text-3xl font-black tracking-tight">Help requests</h1>
           <div className="font-semibold text-muted">You see a code, a category and an amount. Never a name, the message or its language.</div>
         </div>
-        <Link href="/lead" className="btn btn-ghost text-sm">School lead inbox</Link>
+
       </div>
       {error ? <Notice tone="coral">{error}</Notice> : null}
 
@@ -73,7 +73,7 @@ export default function Coordinator() {
                     {r.review_reason
                       ? <button className="btn btn-leaf" disabled={!!busy} onClick={() => act('approve', r.id, true)}>{busy === r.id + 'approve' ? 'Paying with PayPal…' : `I have checked, approve ${usd(r.amount_cents)}`}</button>
                       : <button className="btn btn-leaf" disabled={!!busy} onClick={() => act('approve', r.id)}>{busy === r.id + 'approve' ? 'Paying with PayPal…' : `Approve ${usd(r.amount_cents)}`}</button>}
-                    <button className="btn btn-ghost" disabled={!!busy} onClick={() => act('decline', r.id)}>Decline</button>
+                    <button className="btn btn-ghost" disabled={!!busy} onClick={() => act('decline', r.id)}>Pass to staff</button>
                   </div>
                 ) : null}
                 {r.status === 'NEEDS_STAFF' ? <div className="mt-3" onClick={(e) => e.stopPropagation()}><button className="btn btn-ghost text-sm" onClick={() => act('done', r.id)}>Mark handled</button></div> : null}
@@ -83,7 +83,7 @@ export default function Coordinator() {
         </div>
 
         <div className="space-y-4">
-          {result ? <Notice tone={result.ok ? 'leaf' : 'coral'}>{result.ok && !result.captureId ? result.message : result.ok ? <>A real PayPal payment. Capture <span className="mono">{result.captureId}</span>, recorded on the invoice as {result.ref}. The teacher sees Paid.</> : result.message}</Notice> : null}
+          {result ? <Notice tone={result.ok ? 'leaf' : 'coral'}>{result.ok && !result.captureId ? result.message : result.ok ? <>A real PayPal payment. Capture <span className="mono">{result.captureId}</span>. Recorded on the family’s invoice the same way as cash at the office. The teacher sees Paid.</> : result.message}</Notice> : null}
           <TracePanel rows={data?.trace?.rows || []} model={data?.trace?.model} mode={data?.trace?.mode} title={selReq ? `Trace · ${selReq.code}` : 'Agent and PayPal trace'} empty="Select a request to see every step the agent and PayPal took." />
           <div className="card p-4">
             <div className="flex items-center justify-between"><div className="font-black">Sponsor pledges</div><Link href="/sponsor" className="text-sm font-bold text-coral">Sponsor page →</Link></div>

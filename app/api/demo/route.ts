@@ -5,6 +5,7 @@ import { HERO_INDEX } from '@/lib/ledger/collections';
 
 export const dynamic = 'force-dynamic';
 export const GET = wrap(async () => {
+  if (process.env.DEMO_MODE === '0') return json({ seeded: false });
   const trip = await one("SELECT v FROM kv WHERE k='trip_collection'");
   if (!trip) return json({ seeded: false });
   const fams = await sql('SELECT f.sort, f.help_token, f.child_first, f.code, i.status FROM family f JOIN invoice i ON i.family_id=f.id WHERE f.collection_id=$1 ORDER BY f.sort', [trip.v]);

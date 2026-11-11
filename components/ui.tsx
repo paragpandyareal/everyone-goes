@@ -13,6 +13,7 @@ export function usePoll<T = any>(url: string | null, ms = 2500): { data: T | nul
     try {
       const r = await fetch(urlRef.current, { cache: 'no-store' });
       const j = await r.json();
+      if (r.status === 401 && j.signIn) { window.location.href = `${j.signIn}?next=${encodeURIComponent(window.location.pathname)}`; return; }
       if (!r.ok) setError(j.error || `Error ${r.status}`); else { setData(j); setError(null); }
     } catch (e: any) { setError('Connection problem. Retrying…'); }
   }, []);

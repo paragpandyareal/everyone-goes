@@ -28,3 +28,10 @@ services:
       - { key: APPROVAL_SIGNING_KEY, generateValue: true }
       - { key: ADMIN_TOKEN, generateValue: true }
       - { key: APP_BASE_URL, sync: false }
+      # Public judge demo: role pages open, protected by caps and rate limits. Set to 0 and use STAFF_PASSCODE for a real school.
+      - { key: DEMO_MODE, value: "1" }
+      - { key: STAFF_PASSCODE, generateValue: true }
+      # Sandbox-only test logins shown on the hub, JSON list of {role,email,password}
+      - { key: DEMO_LOGINS, sync: false }
+      - { key: AGENT_RUNS_PER_DAY, value: "250" }
+      - { key: GLOBAL_COVERS_PER_DAY, value: "30" }

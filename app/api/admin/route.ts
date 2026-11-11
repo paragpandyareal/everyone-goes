@@ -14,7 +14,7 @@ export const POST = wrap(async (req: Request) => {
   const { step, keepSponsors } = await req.json();
   if (step === 'reset') {
     const lim = limited(req, 'reset', 2); if (lim) return lim;
-    return json(await resetDemo({ keepSponsors: !!keepSponsors }));
+    return json(await resetDemo({ keepSponsors: !(keepSponsors === false && isAdmin(req)) }));
   }
   // Layout checks only: fake rows, no PayPal. Refuses to run once a Trips app is configured, so it can never mix with real data.
   if (step === 'uifake') {
