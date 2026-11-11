@@ -139,13 +139,16 @@ export default function Home() {
             <span className="rounded-full bg-sky-soft px-2.5 py-1 text-sky">Claude {health?.ai === 'claude-opus-5-5' ? 'Opus 5.5' : health?.ai || '…'}</span>
           </span>
         </div>
-        <div className="max-w-3xl space-y-3">
-          <h1 id="pitch" className="text-4xl font-extrabold leading-[1.05] md:text-5xl">No child misses the trip.<br /><span className="text-coral">The teacher only sees “Paid”.</span></h1>
+        <h1 id="pitch" className="text-4xl font-extrabold leading-[1.05] md:text-5xl lg:text-6xl">No child misses the trip.<br /><span className="text-coral">The teacher only sees “Paid”.</span></h1>
+        <div className="space-y-6">
+        <div className="max-w-4xl space-y-4">
           <p className="text-lg font-semibold text-muted">School fees go out as PayPal invoices with a private “we can’t pay” link. Claude reads the message in any language, a volunteer approves, and a local sponsor’s saved PayPal account pays. Nobody is singled out.</p>
           <div className="flex flex-wrap gap-2 pt-1">
             <button onClick={startTour} className="btn btn-primary">Watch one family get help · 2 min ↓</button>
             <a href="/privacy" target="_blank" rel="noreferrer" className="btn btn-ghost">Who sees what ↗<span className="sr-only"> (opens in a new tab)</span></a>
           </div>
+        </div>
+        <HeroViews />
         </div>
 
         <div className="grid gap-4 lg:grid-cols-3">
@@ -268,6 +271,30 @@ export default function Home() {
       </section>
       <p className="pb-4 text-center text-xs text-muted">Concept demo for the PayPal AI Hackathon. PayPal sandbox only; every person, school and business is fictional.</p>
     </div>
+  );
+}
+
+// The idea at a glance: one moment, as three people see it.
+function HeroViews() {
+  const rows = [
+    { who: 'The parent writes, in Polish', body: <span dir="auto" lang="pl">“Przepraszam, w tym miesiącu nie damy rady…”</span>, reply: 'Reply in Polish: it’s all taken care of. She’s going.', not: 'Who paid', tone: 'bg-ink text-white' },
+    { who: 'The volunteer sees', body: <span className="mono">F-07 · hardship · cover $45</span>, reply: 'One click: Approve $45.00', not: 'Her name, her words, her language', tone: 'bg-white' },
+    { who: 'The teacher sees', body: <span>Zofia · <span className="text-leaf">✓ Paid</span></span>, reply: 'Same as the families who paid cash', not: 'That she ever asked for help', tone: 'bg-white' },
+  ];
+  return (
+    <figure aria-label="One moment, three views">
+      <figcaption className="eyebrow mb-3">One moment, three views</figcaption>
+      <div className="grid gap-3 md:grid-cols-3">
+        {rows.map((r, i) => (
+          <div key={r.who} className={`rounded-2xl border border-line p-4 shadow-[0_12px_30px_-20px_rgba(35,35,58,.4)] ${r.tone}`}>
+            <div className={`text-xs font-bold ${i === 0 ? 'text-white/70' : 'text-muted'}`}>{r.who}</div>
+            <div className="mt-0.5 text-[15px] font-extrabold">{r.body}</div>
+            <div className={`mt-1 text-xs ${i === 0 ? 'text-white/80' : 'text-muted'}`}>{r.reply}</div>
+            <div className={`mt-1 text-xs ${i === 0 ? 'text-white/70' : 'text-muted'}`}><span aria-hidden className="text-[#f28b6b]">✕ </span><span className="sr-only">Can never see: </span><span className="line-through decoration-[#f28b6b]/80">{r.not}</span></div>
+          </div>
+        ))}
+      </div>
+    </figure>
   );
 }
 
