@@ -8,6 +8,7 @@ export default function SponsorImpact({ params }: { params: Promise<{ id: string
   const [stopErr, setStopErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const joined = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('joined');
+  const waiting = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('waiting');
   if (error && !data) return <Notice tone="coral">{error}</Notice>;
   if (!data) return <div className="text-muted">Loading…</div>;
   const pct = Math.min(100, Math.round((data.usedCents / data.capCents) * 100));
@@ -19,7 +20,9 @@ export default function SponsorImpact({ params }: { params: Promise<{ id: string
   }
   return (
     <div className="mx-auto max-w-xl space-y-4">
-      {joined ? <Notice tone="leaf">Your PayPal account is saved for this pledge. Nothing has been charged.</Notice> : null}
+      {joined ? <Notice tone="leaf">Your PayPal account is saved for this pledge. Nothing has been charged.{typeof window !== 'undefined' && window.opener ? ' You can close this tab.' : ''}</Notice> : null}
+      {waiting && !data.saved && data.status === 'PENDING' ? <Notice>Approve on PayPal in the new tab. This page updates by itself when your account is saved.</Notice> : null}
+      {waiting && data.saved ? <Notice tone="leaf">Your PayPal account is saved for this pledge. Nothing has been charged.</Notice> : null}
       <div className="card overflow-hidden">
         <div className="bg-leaf px-5 py-4 text-white">
           <div className="text-sm font-bold opacity-90">{data.sponsor}{data.seeded ? ' · seeded' : ''}</div>

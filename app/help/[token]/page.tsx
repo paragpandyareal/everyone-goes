@@ -1,7 +1,8 @@
 'use client';
-import { use, useState } from 'react';
+import { use, useEffect, useState } from 'react';
 import { usePoll, post, usd, StatusChip, Notice } from '@/components/ui';
 import { Logo } from '@/components/nav';
+import { useFramed } from '@/components/lens';
 
 const EXAMPLES = [
   { label: 'Polish', text: 'Przepraszam, w tym miesiącu nie damy rady, mąż stracił pracę.' },
@@ -15,6 +16,13 @@ export default function HelpPage({ params }: { params: Promise<{ token: string }
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const framed = useFramed();
+  // The demo stage (outside the frame) can drop an example message into the box. It never sends it.
+  useEffect(() => {
+    const on = (e: MessageEvent) => { if (e.origin === window.location.origin && e.data?.type === 'eg-fill' && typeof e.data.text === 'string') setText(e.data.text.slice(0, 1000)); };
+    window.addEventListener('message', on);
+    return () => window.removeEventListener('message', on);
+  }, []);
 
   async function send() {
     setBusy(true); setErr(null);
@@ -57,10 +65,10 @@ export default function HelpPage({ params }: { params: Promise<{ token: string }
         {!waiting ? (
           <div className="mt-3 space-y-2">
             <textarea className="input min-h-24" placeholder="Write here in your language…" value={text} onChange={(e) => setText(e.target.value)} maxLength={1000} />
-            <div className="flex flex-wrap gap-1.5 text-xs">
+            {framed === false ? <div className="flex flex-wrap gap-1.5 text-xs">
               <span className="font-bold text-muted">Demo examples:</span>
               {EXAMPLES.map((x) => <button key={x.label} onClick={() => setText(x.text)} className="chip bg-sky-soft text-sky">{x.label}</button>)}
-            </div>
+            </div> : null}
             <button className="btn btn-primary w-full" disabled={busy || text.trim().length < 2} onClick={send}>{busy ? 'Sending…' : 'Send privately'}</button>
             {err ? <div className="text-sm font-bold text-coral">{err}</div> : null}
           </div>

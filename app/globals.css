@@ -39,3 +39,4 @@ body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
 .flash { animation: flash 1.6s ease-out; }
 @keyframes flash { 0% { background: #c7f0dc; } 100% { background: transparent; } }
 .ag-theme-eg { --ag-font-family: var(--font-nunito), system-ui, sans-serif; --ag-font-size: 15px; }
+.ag-theme-eg .ag-cell { display: flex; align-items: center; }

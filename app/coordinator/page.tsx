@@ -92,7 +92,7 @@ export default function Coordinator() {
 
       <div className="grid gap-5 lg:grid-cols-[1fr_420px]">
         <div className="space-y-3">
-          {open.length === 0 ? <div className="card p-5 text-muted">Nothing waiting. When a family writes privately, a card appears here within seconds. Try it from the <Link href="/parent" className="font-bold text-coral">Parent</Link> page.</div> : null}
+          {open.length === 0 ? <div className="card p-5 text-muted">Nothing waiting. When a family writes privately, a card appears here within seconds.</div> : null}
           {open.map(card)}
           {done.length ? (
             <details className="group">

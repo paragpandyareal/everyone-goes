@@ -4,7 +4,7 @@
 
 > Concept demo for the PayPal AI Hackathon. PayPal sandbox only. Every person, school and business is fictional.
 
-**Try it:** [everyone-goes.onrender.com](https://everyone-goes.onrender.com) (free hosting sleeps when idle, so the first load can take up to a minute). Sandbox logins are on the home page and in [section 9](#9-sandbox-test-logins).
+**Try it:** [everyone-goes.onrender.com](https://everyone-goes.onrender.com) (free hosting sleeps when idle, so the first load can take up to a minute). The home page is a **demo stage**: the real app runs inside a desktop or phone frame and shows only what that person would see, while everything outside the frame (a 4-step tour, Claude’s reasoning, every PayPal call with its ID, reset and logins) exists only for judges. Sandbox logins are on the home page and in [section 9](#9-sandbox-test-logins).
 
 ---
 

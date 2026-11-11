@@ -1,8 +1,8 @@
 import './globals.css';
 import type { Metadata, Viewport } from 'next';
 import { Nunito } from 'next/font/google';
-import { Nav } from '@/components/nav';
-import { LensProvider, DemoBanner, TourBar } from '@/components/lens';
+import { Nav, Main } from '@/components/nav';
+import { LensProvider, DemoBanner } from '@/components/lens';
 
 const nunito = Nunito({ subsets: ['latin', 'latin-ext'], variable: '--font-nunito', weight: ['400', '600', '700', '800', '900'] });
 
@@ -19,8 +19,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <LensProvider>
           <DemoBanner />
           <Nav />
-          <TourBar />
-          <main className="mx-auto max-w-6xl px-4 pb-16 pt-4">{children}</main>
+          <Main>{children}</Main>
         </LensProvider>
       </body>
     </html>

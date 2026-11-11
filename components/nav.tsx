@@ -1,6 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useFramed } from './lens';
 
 const ROLES = [
   { href: '/teacher', label: 'Teacher' },
@@ -21,8 +22,29 @@ export function Logo({ size = 28 }: { size?: number }) {
   );
 }
 
+// Inside the demo stage's frame a page is the real app: one app header, no switching between roles.
+function AppHeader() {
+  const path = usePathname();
+  const who = path.startsWith('/help') ? 'Room 12 PTA' : path.startsWith('/sponsor') ? 'Local sponsors · Room 12 PTA' : 'Room 12 PTA · staff';
+  return (
+    <header className="border-b border-line bg-cream/90">
+      <div className="mx-auto flex max-w-6xl items-center gap-2 px-4 py-2.5 font-black tracking-tight"><Logo size={24} /> Everyone Goes <span className="ml-1 text-sm font-bold text-muted">{who}</span></div>
+    </header>
+  );
+}
+
+export function Main({ children }: { children: React.ReactNode }) {
+  const path = usePathname();
+  const framed = useFramed();
+  if (path === '/') return <main className="px-3 pb-10 pt-3 md:px-5">{children}</main>;
+  return <main className={`mx-auto max-w-6xl px-4 ${framed ? 'pb-8 pt-4' : 'pb-16 pt-4'}`}>{children}</main>;
+}
+
 export function Nav() {
   const path = usePathname();
+  const framed = useFramed();
+  if (framed) return path.startsWith('/help') ? null : <AppHeader />;
+  if (path === '/' || framed === null) return null;
   return (
     <header className="sticky top-0 z-30 border-b border-line bg-cream/90 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-2.5">
