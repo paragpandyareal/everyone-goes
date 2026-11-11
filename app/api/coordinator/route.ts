@@ -22,12 +22,12 @@ export const GET = wrap(async (req: Request) => {
 // The coordinator's click is the approval: a signed single use token is minted and spent on the money path.
 export const POST = wrap(async (req: Request) => {
   const lim = limited(req, 'coord', 10); if (lim) return lim;
-  const { action, requestId } = await req.json();
+  const { action, requestId, override } = await req.json();
   if (action === 'approve') {
     const r = await one("SELECT * FROM help_request WHERE id=$1 AND status='PROPOSED'", [requestId]);
     if (!r) return json({ error: 'Not waiting for approval' }, 409);
     const token = await mintApproval(r.id, r.amount_cents, r.pledge_id);
-    const out = await performCover(token);
+    const out = await performCover(token, override === true);
     retryUnrecorded().catch(() => {});
     return json(out, out.ok ? 200 : 409);
   }

@@ -17,7 +17,7 @@ async function open(): Promise<Q> {
     // PGlite fails inside OneDrive folders and paths with spaces on Windows, so default to local app data there.
     const os = await import('node:os');
     const dir = process.env.PGLITE_DIR || (process.platform === 'win32' ? `${os.homedir().replace(/\\/g, '/')}/AppData/Local/everyonegoes-pg` : './.data/pglite');
-    (await import('node:fs')).mkdirSync(dir, { recursive: true });
+    if (!dir.startsWith('memory://')) (await import('node:fs')).mkdirSync(dir, { recursive: true });
     const db = new PGlite(dir);
     q = async (sql, params) => (await db.query<Row>(sql, params)).rows;
   }

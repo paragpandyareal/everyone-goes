@@ -41,6 +41,7 @@ export async function pp<T = any>(app: AppKey, method: string, path: string, bod
     },
     body: body === undefined ? undefined : JSON.stringify(body),
     cache: 'no-store',
+    signal: AbortSignal.timeout(30_000),
   });
   const text = await r.text();
   let json: any = null;

@@ -23,7 +23,9 @@ export async function kitCall(name: string, args: object): Promise<any> {
   const text = String(r?.content ?? '');
   let json: any;
   try { json = JSON.parse(text); } catch { json = { raw: text }; }
-  if (/error|invalid|unprocessable|not authorized|denied/i.test(text.slice(0, 200)) && !json?.id && !json?.success && !json?.status) throw new Error(text.slice(0, 300));
+  // The Toolkit reports HTTP failures as content like {"ok":false,"status":422,"code":"PAYPAL_API_HTTP_ERROR"}; treat those as errors.
+  if (json?.ok === false || json?.error || json?.code || json?.name === 'UNPROCESSABLE_ENTITY' || (typeof json?.status === 'number' && json.status >= 400)) throw new Error(String(json?.message || json?.error?.message || json?.error || text).slice(0, 300));
+  if (json?.raw !== undefined && /error|invalid|unprocessable|not authori[sz]ed|denied/i.test(String(json.raw).slice(0, 200))) throw new Error(String(json.raw).slice(0, 300));
   return json;
 }
 
@@ -67,13 +69,13 @@ export async function createAndSend(scope: string, inv: NewInvoice, actor: any =
       if (!r.ok) throw new Error(`create invoice ${r.status} debug ${r.debugId}`);
       return { id: r.body?.id || String(r.body?.href).split('/').pop() };
     },
-    (r) => `${inv.reference} · ${value(inv.amountCents)} USD · tip and partial payment on`, (r) => shortId(r.id));
+    () => `Invoice created · ${value(inv.amountCents)} USD · tip and partial payment on · no child name`, (r) => shortId(r.id));
   const invoiceId = created.id as string;
 
   await both(scope, actor, 'send_invoice',
     () => kitCall('send_invoice', { invoice_id: invoiceId, send_to_recipient: true }),
     async () => { const r = await pp('trips', 'POST', `/v2/invoicing/invoices/${invoiceId}/send`, { send_to_recipient: true }); if (!r.ok) throw new Error(`send ${r.status}`); return r.body; },
-    () => `${inv.reference} sent`, () => shortId(invoiceId));
+    () => 'Invoice sent with its private help link', () => shortId(invoiceId));
 
   const got = await getInvoice(invoiceId);
   return { invoiceId, payUrl: got.payUrl, qr: null };
@@ -109,12 +111,12 @@ export async function getInvoice(invoiceId: string): Promise<InvoiceState> {
 }
 
 // Office payments and covers are recorded the same way, so PayPal shows them identically (PRD 6.1).
-export async function recordPayment(scope: string, invoiceId: string, amountCents: number, ref: string, actor: any, approvedBy?: string) {
+export async function recordPayment(scope: string, invoiceId: string, amountCents: number, ref: string, actor: any, approvedBy?: string, requestId?: string) {
   const args = { invoice_id: invoiceId, method: 'OTHER', payment_date: new Date().toISOString().slice(0, 10), amount: { currency_code: 'USD', value: value(amountCents) }, note: `Received, ref ${ref}` };
   return both(scope, actor, 'record_payment_for_invoice',
     () => kitCall('record_payment_for_invoice', args),
-    async () => { const r = await pp('trips', 'POST', `/v2/invoicing/invoices/${invoiceId}/payments`, { method: 'OTHER', payment_date: args.payment_date, amount: args.amount, note: args.note }); if (!r.ok) throw new Error(`record ${r.status} debug ${r.debugId}`); return r.body; },
-    () => `OTHER ${value(amountCents)} USD · "Received, ref ${ref}"${approvedBy ? '' : ''}`, () => shortId(invoiceId));
+    async () => { const r = await pp('trips', 'POST', `/v2/invoicing/invoices/${invoiceId}/payments`, { method: 'OTHER', payment_date: args.payment_date, amount: args.amount, note: args.note }, { requestId }); if (!r.ok) throw new Error(`record ${r.status} debug ${r.debugId}`); return r.body; },
+    () => `Recorded as OTHER ${value(amountCents)} USD, "Received, ref …", the same as cash at the office`, () => shortId(invoiceId));
 }
 
 export async function pauseReminders(scope: string, invoiceId: string) {

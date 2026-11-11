@@ -19,9 +19,9 @@ export default function Coordinator() {
 
   useEffect(() => { if (!sel && reqs.length) setSel((reqs.find((r) => r.status === 'PROPOSED') || reqs[0]).id); }, [reqs.length]);
 
-  async function act(action: string, id: string) {
+  async function act(action: string, id: string, override = false) {
     setBusy(id + action); setResult(null);
-    try { const r = await post('/api/coordinator', { action, requestId: id }); setResult({ ok: true, ...r }); } catch (e: any) { setResult({ ok: false, message: e.message }); }
+    try { const r = await post('/api/coordinator', { action, requestId: id, override }); setResult({ ok: true, ...r }); } catch (e: any) { setResult({ ok: false, message: e.message }); }
     setBusy(null); reload();
   }
   async function draftAsk() {
@@ -67,9 +67,12 @@ export default function Coordinator() {
                   <div className="mt-1 text-sm font-semibold text-muted">{r.kind_of_help === 'PART_COVER' ? 'Part cover' : 'Cover'} {usd(r.amount_cents)} from pledge {r.pledge}{r.confidence ? ` · confidence ${r.confidence.toLowerCase()}` : ''}</div>
                 ) : null}
                 {r.fallback && r.fallback !== 'SEEDED' ? <div className="mt-1 text-xs font-bold text-sun">{r.fallback}</div> : null}
+                {r.review_reason && ['PROPOSED', 'COVERED'].includes(r.status) ? <div className="mt-2 rounded-xl bg-sun-soft px-3 py-2 text-sm font-semibold text-sun">Second look: {r.review_reason}{r.override_by ? ' · approved after a second look' : ''}</div> : null}
                 {r.status === 'PROPOSED' ? (
-                  <div className="mt-3 flex gap-2" onClick={(e) => e.stopPropagation()}>
-                    <button className="btn btn-leaf" disabled={!!busy} onClick={() => act('approve', r.id)}>{busy === r.id + 'approve' ? 'Paying with PayPal…' : `Approve ${usd(r.amount_cents)}`}</button>
+                  <div className="mt-3 flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
+                    {r.review_reason
+                      ? <button className="btn btn-leaf" disabled={!!busy} onClick={() => act('approve', r.id, true)}>{busy === r.id + 'approve' ? 'Paying with PayPal…' : `I have checked, approve ${usd(r.amount_cents)}`}</button>
+                      : <button className="btn btn-leaf" disabled={!!busy} onClick={() => act('approve', r.id)}>{busy === r.id + 'approve' ? 'Paying with PayPal…' : `Approve ${usd(r.amount_cents)}`}</button>}
                     <button className="btn btn-ghost" disabled={!!busy} onClick={() => act('decline', r.id)}>Decline</button>
                   </div>
                 ) : null}

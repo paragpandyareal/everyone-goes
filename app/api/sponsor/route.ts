@@ -4,6 +4,7 @@ import { parsePledge } from '@/lib/agent/small';
 import { createSetupToken, exchangeSetupToken, deletePaymentToken } from '@/lib/paypal/coverfund';
 import { ptrace } from '@/lib/trace';
 import { sponsorView } from '@/lib/views';
+import { dailyCount, LIMITS } from '@/lib/ledger/abuse';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,6 +24,7 @@ export const POST = wrap(async (req: Request) => {
     return json(await parsePledge(text));
   }
   if (b.action === 'start') {
+    if ((await dailyCount('pledge')) >= LIMITS.pledgesPerDay) return json({ error: 'The demo has reached its daily limit for new pledges. Try again tomorrow.' }, 429);
     const name = String(b.name || "Rosa's Bakery").slice(0, 60);
     const t = b.terms || {};
     if (!(t.cap_cents > 0 && t.cap_cents <= 100000 && t.per_child_cap_cents > 0)) return json({ error: 'Pledge needs a total cap up to $1,000 and a per child cap' }, 400);

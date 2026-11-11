@@ -116,7 +116,7 @@ export async function resetDemo(opts: { keepSponsors?: boolean } = {}) {
     const inv = await syncInvoice(await one('SELECT * FROM invoice WHERE id=$1', [f.inv_row]), true);
     if (inv.status === 'SENT' || inv.status === 'UNPAID') { await sql('UPDATE invoice SET reminders_paused=false WHERE id=$1', [inv.id]); continue; }
     if (inv.paypal_invoice_id && !/^(PAID|MARKED_AS_PAID|CANCELLED)$/.test(inv.status)) await cancelInvoice(`col:${trip}`, inv.paypal_invoice_id).catch(() => {});
-    const r = await createAndSend(`col:${trip}`, { email: f.parent_email, reference: f.code, itemName: 'Requested contribution, museum trip', amountCents: coll.amount_cents, note: invoiceNote(coll.kind, f.help_token) }, 'system');
+    const r = await createAndSend(`col:${trip}`, { email: f.parent_email, reference: `R12-${Math.random().toString(16).slice(2, 8).toUpperCase()}`, itemName: 'Requested contribution, museum trip', amountCents: coll.amount_cents, note: invoiceNote(coll.kind, f.help_token) }, 'system');
     await sql("UPDATE invoice SET paypal_invoice_id=$2, pay_url=$3, status='SENT', paid_cents=0, tip_cents=0, paid_via=NULL, seeded=false, reminders_paused=false, last_sync=now(), updated_at=now() WHERE id=$1", [inv.id, r.invoiceId, r.payUrl]);
   }
   if (!opts.keepSponsors) {

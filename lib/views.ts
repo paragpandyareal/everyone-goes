@@ -36,7 +36,7 @@ export async function teacherView(collectionId: string) {
 
 // Coordinator: code, category, summary, amount, pledge balance. Never names, raw text or language.
 export async function coordinatorView() {
-  const reqs = await sql(`SELECT r.id, r.code, r.category, r.kind_of_help, r.amount_cents, r.summary, r.status, r.confidence, r.fallback, r.scripted, r.created_at, r.updated_at, r.pledge_id, c.title, c.kind
+  const reqs = await sql(`SELECT r.id, r.code, r.category, r.kind_of_help, r.amount_cents, r.summary, r.status, r.confidence, r.fallback, r.scripted, r.review_reason, r.override_by, r.created_at, r.updated_at, r.pledge_id, c.title, c.kind
     FROM help_request r JOIN collection c ON c.id=r.collection_id ORDER BY r.created_at DESC LIMIT 60`);
   const pledges = await sql("SELECT p.id, p.cap_cents, p.used_cents, p.per_child_cap_cents, p.conditions_text, p.status, p.seeded FROM pledge p WHERE p.status IN ('ACTIVE','EXHAUSTED') ORDER BY p.created_at");
   const label = (id: string) => `P-${id.slice(-4).toUpperCase()}`;

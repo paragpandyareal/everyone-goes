@@ -9,6 +9,7 @@ import { pledgeProblems, coverAmountProblems } from '../ledger/rules';
 import { create, liveMode, underLimit, startRun, traceRun, endRun, MODEL } from './claude';
 import { TRIAGE_SYSTEM } from './prompts';
 import { mockTriage } from './mock';
+import { softSignals } from '../ledger/abuse';
 
 const MAX_TOOLS = 10, MAX_MS = 60_000;
 export const SAFEGUARDING_BACKSTOP = /\b(hit|hits|hitting|beat|beats|hurt|hurts|abuse|abused|touch(ed|es)? me|scared to go home|afraid to go home|not safe|unsafe|bruises?|locked in|no food at home|nobody (is )?home|alone at night|kill|suicid)\b/i;
@@ -88,6 +89,12 @@ export async function applyOutcome(ctx: TriageCtx, name: string, input: any, fal
   if (ctx.evalOnly) return;
   const id = ctx.requestId;
   if (name === 'propose_cover') {
+    if (!ctx.evalOnly) {
+      const fam = await one('SELECT family_tag, collection_id FROM family WHERE id=$1', [ctx.familyId]);
+      const sig = fam ? await softSignals(fam.family_tag, fam.collection_id) : { reasons: [] as string[] };
+      await sql('UPDATE help_request SET review_reason=$2 WHERE id=$1', [id, sig.reasons.length ? sig.reasons.join(' · ') : null]);
+      if (sig.reasons.length) await traceRun(ctx.runId, { type: 'check', name: 'abuse_signals', summary: `Second look needed: ${sig.reasons.join('; ')}` });
+    }
     await sql("UPDATE help_request SET status=$11, category=$2, kind_of_help=$3, amount_cents=$4, pledge_id=$5, summary=$6, reply_text=$7, reply_en=$8, confidence=$9, fallback=$10, updated_at=now() WHERE id=$1",
       [id, input.category, input.kind_of_help, input.amount_cents, input.pledge_id && input.pledge_id !== 'NONE' ? input.pledge_id : null, input.coordinator_summary, input.reply_to_parent, input.reply_english, input.confidence, fallback || null, input.pledge_id && input.pledge_id !== 'NONE' ? 'PROPOSED' : 'NEEDS_SPONSOR']);
   } else if (name === 'route_to_lead') {

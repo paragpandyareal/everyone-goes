@@ -1,6 +1,6 @@
 import { json, wrap, limited } from '@/lib/api';
 import { parentView } from '@/lib/views';
-import { newHelpRequest } from '@/lib/ledger/collections';
+import { newHelpRequest, UserFacingError } from '@/lib/ledger/collections';
 import { triage } from '@/lib/agent/triage';
 
 export const dynamic = 'force-dynamic';
@@ -16,7 +16,8 @@ export const POST = wrap(async (req: Request, { params }: P) => {
   const { token } = await params;
   const text = String((await req.json()).text || '').trim();
   if (text.length < 2) return json({ error: 'Write a short message' }, 400);
-  const id = await newHelpRequest(token, text);
+  let id: string;
+  try { id = await newHelpRequest(token, text); } catch (e: any) { if (e instanceof UserFacingError) return json({ error: e.message }, 409); throw e; }
   triage(id).catch((e) => console.error('triage', e));
   return json({ id });
 });

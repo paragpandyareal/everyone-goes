@@ -2,6 +2,7 @@ import { json, wrap, limited } from '@/lib/api';
 import { draftCollection, type Draft } from '@/lib/agent/small';
 import { createCollection, issueInvoices, ROOM12, SOCCER } from '@/lib/ledger/collections';
 import { sql } from '@/lib/db';
+import { dailyCount, LIMITS } from '@/lib/ledger/abuse';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,6 +11,7 @@ export const POST = wrap(async (req: Request) => {
   const body = await req.json();
   if (body.confirm) {
     const lim = limited(req, 'collect', 3); if (lim) return lim;
+    if ((await dailyCount('collection')) >= LIMITS.collectionsPerDay) return json({ error: `The demo allows ${LIMITS.collectionsPerDay} new collections a day. Try the seeded ones.` }, 429);
     const d = body.confirm as Draft;
     if (!(d.amount_cents > 0 && d.amount_cents <= 50000)) return json({ error: 'Amount must be between $0.01 and $500' }, 400);
     const roster = body.roster === 'soccer' ? SOCCER : ROOM12;
