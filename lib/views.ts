@@ -14,6 +14,9 @@ export function teacherStatus(status: string, paid: number): 'Paid' | 'Part paid
   return 'Not yet';
 }
 
+// The teacher never gets the PayPal vs recorded split (it would show which rows were office cash or covers).
+const teacherCounters = (c: any) => ({ total: c.total, paid: c.paid, tips: c.tips, sponsors_saved: c.sponsors_saved });
+
 // Teacher: who has paid. Never the family code, never who asked for help, never how a row was paid.
 export async function teacherView(collectionId: string) {
   g.__egSync ||= {};
@@ -29,7 +32,7 @@ export async function teacherView(collectionId: string) {
     FROM collection c LEFT JOIN family f ON f.collection_id=c.id LEFT JOIN invoice i ON i.family_id=f.id GROUP BY c.id ORDER BY c.created_at`);
   const qr = await one('SELECT v FROM kv WHERE k=$1', [`qr:${collectionId}`]);
   return {
-    collection: coll, collections, qr: qr?.v || null, counters: await counters(collectionId),
+    collection: coll, collections, qr: qr?.v || null, counters: teacherCounters(await counters(collectionId)),
     // No family code, no pay link, no update time, no payment method: nothing that could link a row to a cover.
     rows: rows.map((r) => ({ child: r.child_first, parent: r.parent_name, status: teacherStatus(r.status, r.paid_cents), paidCents: Math.min(r.paid_cents, coll.amount_cents), tipCents: r.tip_cents, seeded: r.seeded })),
   };

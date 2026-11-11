@@ -22,8 +22,8 @@ export const POST = wrap(async (req: Request) => {
     const { seedClass } = await import('@/lib/ledger/seed');
     const { sql } = await import('@/lib/db');
     const r = await seedClass();
-    await sql("UPDATE invoice SET status = CASE WHEN random() < 0.7 THEN 'PAID' ELSE 'SENT' END, paid_cents = 4500 WHERE paypal_invoice_id IS NULL");
-    await sql("UPDATE invoice SET paid_cents = 0 WHERE status='SENT'");
+    const { UNPAID, OFFICE } = await import('@/lib/ledger/seed');
+    await sql("UPDATE invoice i SET status = CASE WHEN f.sort = ANY($1) THEN 'SENT' ELSE 'PAID' END, paid_cents = CASE WHEN f.sort = ANY($1) THEN 0 ELSE i.amount_cents END, seeded = (f.sort = ANY($2)) FROM family f WHERE f.id = i.family_id AND i.paypal_invoice_id IS NULL", [UNPAID, OFFICE]);
     return json({ ...r, fake: true });
   }
   if (!isAdmin(req)) return json({ error: 'admin only' }, 403);

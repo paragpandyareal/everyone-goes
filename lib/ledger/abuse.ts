@@ -19,6 +19,7 @@ export const LIMITS = {
 
 // A pseudonymous tag for a family across collections, from the parent email. Not reversible without the server key.
 export function familyTag(parentEmail: string): string {
+  if (!process.env.LINK_TABLE_KEY && process.env.NODE_ENV === 'production') throw new Error('LINK_TABLE_KEY must be set in production');
   return crypto.createHmac('sha256', process.env.LINK_TABLE_KEY || 'dev-only-link-table-key-change-me').update(`fam:${parentEmail.trim().toLowerCase()}`).digest('base64url').slice(0, 22);
 }
 

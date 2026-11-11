@@ -27,7 +27,7 @@ describe('who sees what', () => {
     for (const leak of ['F-07', 'F-31', 'EG-4821', 'CAP123', 'https://pay', 'RECORDED', 'PAYPAL', 'INV2']) expect(s).not.toContain(leak);
     expect(Object.keys(v.rows[0]).sort()).toEqual(['child', 'paidCents', 'parent', 'seeded', 'status', 'tipCents']);
     expect(v.rows.map((r: any) => r.status)).toEqual(['Paid', 'Paid']); // cover and PayPal payment look the same
-    expect(Object.keys(v.counters)).not.toContain('on_paypal_by_row');
+    expect(Object.keys(v.counters).sort()).toEqual(['paid', 'sponsors_saved', 'tips', 'total']);
   });
 
   it('coordinator view: code, category, amount; never a name, the raw message or its language', async () => {
