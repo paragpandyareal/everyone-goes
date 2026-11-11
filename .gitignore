@@ -1,0 +1,11 @@
+# Secrets and local test state. Never commit these.
+.env
+.env.*
+!.env.example
+node_modules/
+scripts/spikes/.state.json
+scripts/seed/.seed-state.json
+.next/
+.data/
+next-env.d.ts
+*.tsbuildinfo
