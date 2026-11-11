@@ -1,0 +1,36 @@
+{
+  "name": "everyone-goes",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Everyone Goes. School and club money through PayPal invoices, with a private way to ask for help, covered by local sponsors' saved PayPal accounts. PayPal AI Hackathon entry.",
+  "license": "MIT",
+  "scripts": {
+    "dev": "next dev -p 3100",
+    "build": "next build",
+    "start": "next start -p ${PORT:-3100}",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "eval": "node --env-file=.env scripts/eval/run-eval.mjs"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.8.0",
+    "@electric-sql/pglite": "^0.5.16",
+    "@paypal/agent-toolkit": "^1.11.0",
+    "ag-grid-community": "^36.3.0",
+    "ag-grid-react": "^36.3.0",
+    "next": "^15.5.29",
+    "pg": "^8.23.1",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.5",
+    "@types/node": "^22.20.5",
+    "@types/pg": "^8.23.1",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "tailwindcss": "^4.3.5",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0"
+  }
+}
