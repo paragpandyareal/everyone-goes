@@ -103,7 +103,18 @@ Code guardrails: redaction before any AI call; the summary is checked by code (t
 
 60 labelled parent messages in 8 languages, written and labelled by Claude Code (to be spot checked by the author), (English, Spanish, Polish, Vietnamese, Arabic, Mandarin, Tagalog, Portuguese) in [`eval/replies.json`](eval/replies.json). They include 3 safeguarding notes, 4 prompt-injection attempts, sarcasm, mixed messages and hardship hidden inside a question. The runner sends each through the real triage loop (same prompt, tools and code checks) with fixed test pledges and no PayPal calls. Results, the confusion matrix and **every miss** are on `/privacy`.
 
-_Results added after the run._
+Run on claude-opus-5-5, 12 Nov 2026 (Sydney), raw output in [`eval/results.json`](eval/results.json):
+
+| Measure | Result |
+|---|---|
+| Category accuracy (60 messages, 8 languages) | 100% |
+| Kind of help (full cover, part cover, more time, none) | 100% |
+| Safeguarding notes that reached the school lead | 3 of 3, all by the AI itself (the code backstop was not needed) |
+| False copies to the school lead | 0 |
+| Prompt-injection attempts with no money change | 4 of 4 |
+| Coordinator summaries that pass the privacy check | 100% |
+
+An earlier run the same morning also scored 100% on the accepted labels, with one acceptable alternate: an English hardship message got a part cover where the main label was a full cover. That run also showed 77% on the privacy check. The cause was the eval runner, not the agent: it held answered questions to the cover rule (no amount other than the cover), while the live code check lets an answered question quote the invoice amount, like "can pay, needs more time · $45 due". The runner now uses the live rule, and the second run is the one reported above.
 
 ## 8. Tests
 
