@@ -34,7 +34,7 @@ export default function Teacher() {
     { field: 'parent', headerName: 'Parent or carer', flex: 1.4, minWidth: 150 },
     { field: 'status', headerName: 'Status', flex: 1, minWidth: 120, cellRenderer: (p: any) => <StatusChip status={p.value} />, sort: 'asc', comparator: (a: string, b: string) => order(a) - order(b) },
     { field: 'paidCents', headerName: 'Paid', flex: 0.8, minWidth: 90, valueFormatter: (p: any) => (p.value ? usd(p.value) : '–') },
-    { field: 'tipCents', headerName: 'Pay it forward', flex: 0.9, minWidth: 110, valueFormatter: (p: any) => (p.value ? `+${usd(p.value)}` : '') },
+    { field: 'tipCents', headerName: 'Tip', flex: 0.9, minWidth: 110, valueFormatter: (p: any) => (p.value ? `+${usd(p.value)}` : '') },
     { field: 'seeded', headerName: '', width: 96, cellRenderer: (p: any) => (p.value ? <Chip title="Recorded as an office payment while seeding the demo">SEEDED</Chip> : null) },
   ], []);
 

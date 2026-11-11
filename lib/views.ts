@@ -82,7 +82,7 @@ export async function traceView(scope: string, runId?: string | null) {
   const pay = await sql('SELECT tool, via, summary, paypal_id, debug_id, approved_by, ok, actor, created_at FROM ptrace WHERE scope=$1 ORDER BY id', [scope]);
   const run = runId ? await one('SELECT kind, model, mode, status, trace_json, created_at FROM agent_run WHERE id=$1', [runId]) : null;
   const rows = [
-    ...(run?.trace_json || []).map((t: any) => ({ at: t.at, kind: t.type, tool: t.name, via: t.type === 'check' ? 'Code' : 'Claude', summary: t.summary, ok: t.ok !== false })),
+    ...(run?.trace_json || []).map((t: any) => ({ at: t.at, kind: t.type, tool: t.name, via: t.type === 'check' || t.type === 'note' ? 'Code' : run?.mode === 'live' ? 'Claude' : 'Rules', summary: t.summary, ok: t.ok !== false })),
     ...pay.map((p) => ({ at: new Date(p.created_at).getTime(), kind: 'paypal', tool: p.tool, via: p.via, summary: p.summary, paypalId: p.paypal_id, debugId: p.debug_id, approvedBy: p.approved_by, ok: p.ok })),
   ].sort((a, b) => a.at - b.at);
   return { rows, model: run?.model || null, mode: run?.mode || null, status: run?.status || null };

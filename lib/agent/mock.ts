@@ -27,7 +27,7 @@ export async function mockTriage(ctx: TriageCtx, runTool: (c: TriageCtx, n: stri
     const p = pledges.find((x) => !pledgeProblems(x, ctx.kind, ctx.dueCents).length);
     await runTool(ctx, 'pause_reminders');
     const [reply, en] = REPLIES[l] || REPLIES.en;
-    return { name: 'propose_cover', input: { category: 'HARDSHIP', kind_of_help: 'FULL_COVER', amount_cents: ctx.dueCents, pledge_id: p?.id, coordinator_summary: `asks for help · cover $${(ctx.dueCents / 100).toFixed(0)}`, reidentification_risk_removed: ['language', 'personal circumstances'], reply_to_parent: reply, reply_english: en, confidence: 'LOW' } };
+    return { name: 'propose_cover', input: { category: 'HARDSHIP', kind_of_help: 'FULL_COVER', amount_cents: ctx.dueCents, pledge_id: p?.id || 'NONE', coordinator_summary: `asks for help · cover $${(ctx.dueCents / 100).toFixed(0)}`, reidentification_risk_removed: ['language', 'personal circumstances'], reply_to_parent: reply, reply_english: en, confidence: 'LOW' } };
   }
   if (TIME.test(t)) { await runTool(ctx, 'pause_reminders'); return { name: 'answer_question', input: { category: 'TIMING', coordinator_summary: 'needs more time', note_for_staff: 'Family can pay but needs more time. Reminders paused.', reply_to_parent: 'Thank you, that is fine. We have paused reminders.', reply_english: 'Thank you, that is fine. We have paused reminders.' } }; }
   const [r, e] = l === 'es' ? REPLIES.es : ['Thanks for writing! We have passed your question to the teacher, who will answer here soon.', 'Thanks for writing! We have passed your question to the teacher, who will answer here soon.'];

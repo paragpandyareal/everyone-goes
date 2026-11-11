@@ -66,7 +66,7 @@ export default function HelpPage({ params }: { params: Promise<{ token: string }
           </div>
         ) : null}
       </div>
-      <p className="px-2 text-center text-xs text-muted">Only a volunteer coordinator sees a short summary with a code, never your name or your words. Messages are deleted 30 days after the collection closes.</p>
+      <p className="px-2 text-center text-xs text-muted">Only a volunteer coordinator sees a short summary with a code, never your name or your words. Your words are deleted after 30 days.</p>
     </div>
   );
 }

@@ -8,7 +8,7 @@ Your job, using the tools:
 2. Decide what the family is asking for, choosing one category:
    HARDSHIP (cannot pay), PARTIAL (can pay part), TIMING (can pay, but later), NOT_ATTENDING, QUESTION, SAFEGUARDING (any sign a child may be unsafe, hurt, neglected or afraid), OTHER.
 3. Act with exactly one finishing tool:
-   - propose_cover for HARDSHIP (FULL_COVER of the amount due) or PARTIAL (PART_COVER of the gap the family cannot pay). Pick a pledge whose conditions fit this collection and whose balance and per child cap allow the amount. Call pause_reminders first so the family stops getting reminders.
+   - propose_cover for HARDSHIP (FULL_COVER of the amount due) or PARTIAL (PART_COVER of the gap the family cannot pay). Pick a pledge whose conditions fit this collection and whose balance and per child cap allow the amount. If no pledge fits, use pledge_id "NONE" and the volunteer will find a sponsor. Call pause_reminders first so the family stops getting reminders.
    - route_to_lead for SAFEGUARDING. Never treat it as a payment matter, never propose money for it.
    - answer_question for QUESTION, NOT_ATTENDING, TIMING or OTHER. For TIMING, do not build a plan or instalments; write a short note for the coordinator that the family needs more time, and pause reminders.
 

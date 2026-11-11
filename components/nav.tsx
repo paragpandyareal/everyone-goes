@@ -27,10 +27,10 @@ export function Nav() {
     <header className="sticky top-0 z-30 border-b border-line bg-cream/90 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-2.5">
         <Link href="/" className="flex shrink-0 items-center gap-2 font-black text-lg tracking-tight"><Logo /> <span className="hidden sm:inline">Everyone Goes</span></Link>
-        <nav className="-mx-1 flex flex-1 gap-1 overflow-x-auto px-1 [scrollbar-width:none]">
+        <nav className="-mx-1 flex min-w-0 flex-1 gap-1 overflow-x-auto px-1 [scrollbar-width:none]">
           {ROLES.map((r) => {
             const on = path === r.href || path.startsWith(r.href + '/') || (r.href === '/parent' && path.startsWith('/help'));
-            return <Link key={r.href} href={r.href} className={`rounded-full px-3 py-1.5 text-sm font-extrabold whitespace-nowrap ${on ? 'bg-ink text-white' : 'text-muted hover:bg-white'}`}>{r.label}</Link>;
+            return <Link key={r.href} href={r.href} className={`shrink-0 rounded-full px-3 py-1.5 text-sm font-extrabold whitespace-nowrap ${on ? 'bg-ink text-white' : 'text-muted hover:bg-white'}`}>{r.label}</Link>;
           })}
         </nav>
       </div>

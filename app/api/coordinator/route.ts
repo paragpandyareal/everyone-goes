@@ -2,7 +2,8 @@ import { json, wrap, limited } from '@/lib/api';
 import { coordinatorView, traceView } from '@/lib/views';
 import { one, sql } from '@/lib/db';
 import { mintApproval } from '@/lib/approval';
-import { performCover, retryUnrecorded } from '@/lib/ledger/service';
+import { performCover, retryUnrecorded, pledgesFor } from '@/lib/ledger/service';
+import { pledgeProblems } from '@/lib/ledger/rules';
 import { sponsorAsk } from '@/lib/agent/small';
 
 export const dynamic = 'force-dynamic';
@@ -31,8 +32,16 @@ export const POST = wrap(async (req: Request) => {
     return json(out, out.ok ? 200 : 409);
   }
   if (action === 'decline') {
-    await sql("UPDATE help_request SET status='DECLINED', updated_at=now() WHERE id=$1 AND status IN ('PROPOSED','NEEDS_STAFF')", [requestId]);
+    await sql("UPDATE help_request SET status='DECLINED', updated_at=now() WHERE id=$1 AND status IN ('PROPOSED','NEEDS_STAFF','NEEDS_SPONSOR')", [requestId]);
     return json({ ok: true });
+  }
+  if (action === 'rematch') {
+    const r = await one("SELECT h.*, c.kind FROM help_request h JOIN collection c ON c.id=h.collection_id WHERE h.id=$1 AND h.status='NEEDS_SPONSOR'", [requestId]);
+    if (!r) return json({ error: 'Not waiting for a sponsor' }, 409);
+    const p = (await pledgesFor(r.kind)).find((x) => !pledgeProblems(x, r.kind, r.amount_cents).length);
+    if (!p) return json({ error: 'Still no pledge that fits. Draft a sponsor ask below.' }, 409);
+    await sql("UPDATE help_request SET status='PROPOSED', pledge_id=$2, updated_at=now() WHERE id=$1", [r.id, p.id]);
+    return json({ ok: true, message: 'Matched to a pledge. Approve to pay.' });
   }
   if (action === 'done') {
     await sql("UPDATE help_request SET status='ANSWERED', updated_at=now() WHERE id=$1 AND status='NEEDS_STAFF'", [requestId]);

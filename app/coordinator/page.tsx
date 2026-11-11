@@ -5,7 +5,7 @@ import { usePoll, post, usd, Chip, TracePanel, Notice, timeAgo } from '@/compone
 
 const CAT_TONE: Record<string, string> = { HARDSHIP: 'coral', PARTIAL: 'sun', TIMING: 'sky', QUESTION: 'sky', NOT_ATTENDING: 'grey', SAFEGUARDING: 'ink', OTHER: 'grey' };
 const STATUS: Record<string, [string, string]> = {
-  NEW: ['Reading…', 'grey'], PROPOSED: ['Needs your approval', 'coral'], CHARGING: ['Paying…', 'sun'], COVERED: ['Covered', 'leaf'],
+  NEW: ['Reading…', 'grey'], NEEDS_SPONSOR: ['Waiting for a sponsor', 'sun'], PROPOSED: ['Needs your approval', 'coral'], CHARGING: ['Paying…', 'sun'], COVERED: ['Covered', 'leaf'],
   DECLINED: ['Declined', 'grey'], ANSWERED: ['Answered', 'leaf'], NEEDS_STAFF: ['For staff', 'sky'], ROUTED_TO_LEAD: ['Sent to school lead', 'ink'],
 };
 
@@ -30,8 +30,8 @@ export default function Coordinator() {
     setBusy(null);
   }
   const selReq = reqs.find((r) => r.id === sel);
-  const open = reqs.filter((r) => ['NEW', 'PROPOSED', 'CHARGING', 'NEEDS_STAFF'].includes(r.status));
-  const done = reqs.filter((r) => !['NEW', 'PROPOSED', 'CHARGING', 'NEEDS_STAFF'].includes(r.status));
+  const open = reqs.filter((r) => ['NEW', 'PROPOSED', 'CHARGING', 'NEEDS_STAFF', 'NEEDS_SPONSOR'].includes(r.status));
+  const done = reqs.filter((r) => !['NEW', 'PROPOSED', 'CHARGING', 'NEEDS_STAFF', 'NEEDS_SPONSOR'].includes(r.status));
 
   return (
     <div className="space-y-5">
@@ -60,6 +60,9 @@ export default function Coordinator() {
                   <span className="ml-auto text-xs text-muted">{r.title} · {timeAgo(r.created_at)}</span>
                 </div>
                 <div className="mt-2 text-lg font-black">{r.summary || (r.status === 'NEW' ? 'The agent is reading the message…' : '')}</div>
+                {r.status === 'NEEDS_SPONSOR' ? (
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-sm" onClick={(e) => e.stopPropagation()}><span className="font-semibold text-muted">No pledge has room for {usd(r.amount_cents)}.</span><button className="btn btn-ghost !py-1 text-sm" disabled={!!busy} onClick={() => act('rematch', r.id)}>Match to a new pledge</button></div>
+                ) : null}
                 {r.amount_cents && ['PROPOSED', 'CHARGING', 'COVERED'].includes(r.status) ? (
                   <div className="mt-1 text-sm font-semibold text-muted">{r.kind_of_help === 'PART_COVER' ? 'Part cover' : 'Cover'} {usd(r.amount_cents)} from pledge {r.pledge}{r.confidence ? ` · confidence ${r.confidence.toLowerCase()}` : ''}</div>
                 ) : null}
@@ -77,7 +80,7 @@ export default function Coordinator() {
         </div>
 
         <div className="space-y-4">
-          {result ? <Notice tone={result.ok ? 'leaf' : 'coral'}>{result.ok ? <>A real PayPal payment. Capture <span className="mono">{result.captureId}</span>, recorded on the invoice as {result.ref}. The teacher sees Paid.</> : result.message}</Notice> : null}
+          {result ? <Notice tone={result.ok ? 'leaf' : 'coral'}>{result.ok && !result.captureId ? result.message : result.ok ? <>A real PayPal payment. Capture <span className="mono">{result.captureId}</span>, recorded on the invoice as {result.ref}. The teacher sees Paid.</> : result.message}</Notice> : null}
           <TracePanel rows={data?.trace?.rows || []} model={data?.trace?.model} mode={data?.trace?.mode} title={selReq ? `Trace · ${selReq.code}` : 'Agent and PayPal trace'} empty="Select a request to see every step the agent and PayPal took." />
           <div className="card p-4">
             <div className="flex items-center justify-between"><div className="font-black">Sponsor pledges</div><Link href="/sponsor" className="text-sm font-bold text-coral">Sponsor page →</Link></div>

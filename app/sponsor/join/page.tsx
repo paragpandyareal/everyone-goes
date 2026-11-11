@@ -37,7 +37,7 @@ export default function Join() {
           <div className="rounded-2xl bg-cream p-3 text-sm">
             You authorise <b>Room 12 PTA Cover Fund</b> to charge this PayPal account each time a contribution is covered from your pledge, up to <b>{usd(terms.cap_cents, false)}</b> in total and <b>{usd(terms.per_child_cap_cents, false)}</b> per child. You get a receipt for every charge and can stop at any time with one click.
           </div>
-          <button className="btn w-full !bg-[#ffc439] !text-[#111] hover:!bg-[#f2b92f]" disabled={busy} onClick={go}>{busy ? 'Opening PayPal…' : 'Agree and save with PayPal'}</button>
+          <button className="btn btn-primary w-full" disabled={busy} onClick={go}>{busy ? 'Opening PayPal…' : 'Agree and save with PayPal'}</button>
           <div className="text-center text-xs text-muted">Nothing is charged now. PayPal saves your account for this pledge only.</div>
         </div>
       ) : null}

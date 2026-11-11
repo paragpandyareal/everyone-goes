@@ -55,6 +55,11 @@ async function loadCtx(requestId: string, runId: string): Promise<TriageCtx> {
 async function checkFinish(ctx: TriageCtx, name: string, input: any): Promise<string[]> {
   if (name === 'propose_cover') {
     const errs = [...coverAmountProblems(input.amount_cents, ctx.dueCents, 'SENT')];
+    if (input.pledge_id === 'NONE') {
+      const all = ctx.fixturePledges || (await pledgesFor(ctx.kind));
+      if (all.some((x: any) => !pledgeProblems(x, ctx.kind, input.amount_cents).length)) errs.push('a pledge does fit; use its pledge_id');
+      return [...errs, ...checkSummary(input.coordinator_summary || '', ctx.roster, input.amount_cents)];
+    }
     const p = ctx.fixturePledges ? ctx.fixturePledges.find((x) => x.id === input.pledge_id) : await one('SELECT * FROM pledge WHERE id=$1', [input.pledge_id]);
     if (!p) errs.push('pledge_id not found; use an id from list_pledges');
     else errs.push(...pledgeProblems(p, ctx.kind, input.amount_cents));
@@ -83,8 +88,8 @@ export async function applyOutcome(ctx: TriageCtx, name: string, input: any, fal
   if (ctx.evalOnly) return;
   const id = ctx.requestId;
   if (name === 'propose_cover') {
-    await sql("UPDATE help_request SET status='PROPOSED', category=$2, kind_of_help=$3, amount_cents=$4, pledge_id=$5, summary=$6, reply_text=$7, reply_en=$8, confidence=$9, fallback=$10, updated_at=now() WHERE id=$1",
-      [id, input.category, input.kind_of_help, input.amount_cents, input.pledge_id, input.coordinator_summary, input.reply_to_parent, input.reply_english, input.confidence, fallback || null]);
+    await sql("UPDATE help_request SET status=$11, category=$2, kind_of_help=$3, amount_cents=$4, pledge_id=$5, summary=$6, reply_text=$7, reply_en=$8, confidence=$9, fallback=$10, updated_at=now() WHERE id=$1",
+      [id, input.category, input.kind_of_help, input.amount_cents, input.pledge_id && input.pledge_id !== 'NONE' ? input.pledge_id : null, input.coordinator_summary, input.reply_to_parent, input.reply_english, input.confidence, fallback || null, input.pledge_id && input.pledge_id !== 'NONE' ? 'PROPOSED' : 'NEEDS_SPONSOR']);
   } else if (name === 'route_to_lead') {
     await sql("UPDATE help_request SET status='ROUTED_TO_LEAD', category='SAFEGUARDING', kind_of_help='NONE', summary='Routed to the school lead', reply_text=$2, reply_en=$3, updated_at=now() WHERE id=$1", [id, input.reply_to_parent, input.reply_english]);
     await sql('INSERT INTO lead_item (id, request_id, text_redacted) VALUES ($1,$2,$3)', [newId('lead'), id, `${input.concern_summary}\n\nMessage (redacted): ${ctx.redacted}`]);
@@ -111,7 +116,11 @@ export async function triage(requestId: string): Promise<void> {
   // Deterministic backstop: anything that looks like a safety concern always reaches the lead, whatever the model says.
   const backstop = SAFEGUARDING_BACKSTOP.test(unseal((await one('SELECT raw_enc FROM help_request WHERE id=$1', [requestId])).raw_enc));
   try {
-    if (!live) {
+    if (ctx.dueCents <= 0) {
+      await traceRun(runId, { type: 'check', name: 'invoice_state', summary: 'Nothing is due on this invoice, no money action' });
+      await applyOutcome(ctx, 'answer_question', { category: 'OTHER', coordinator_summary: 'already paid', note_for_staff: 'Invoice already paid. No action.', reply_to_parent: 'Thank you for your message. This contribution is already paid, so there is nothing more to do.', reply_english: 'Thank you for your message. This contribution is already paid, so there is nothing more to do.' });
+      await endRun(runId, 'DONE', { alreadyPaid: true });
+    } else if (!live) {
       await traceRun(runId, { type: 'note', name: 'mode', summary: liveMode() ? 'AI hourly cap reached, using stored rules' : 'AI off, using stored rules' });
       const out = await mockTriage(ctx, runTool);
       await applyOutcome(ctx, out.name, out.input, 'Rules (AI off)');
