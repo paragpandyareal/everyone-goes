@@ -10,23 +10,32 @@ process.env.PLEDGE_COVERS_PER_DAY = '50';
 const charges: any[] = [];
 const refunds: any[] = [];
 const flakySeen = new Set<string>();
+let captureStatus = 'COMPLETED';
 const recorded: any[] = [];
-const invoiceState = new Map<string, { status: string; paid: number }>();
+const invoiceState = new Map<string, { status: string; paid: number; notes: string[] }>();
+let recordMode: 'ok' | 'lands_then_throws' | 'throws' = 'ok';
 
 vi.mock('../paypal/coverfund', () => ({
   chargeVault: vi.fn(async (coverId: string, ref: string, vaultId: string, amount: number) => {
     charges.push({ coverId, vaultId, amount });
     if (vaultId === 'flaky' && !flakySeen.has(coverId)) { flakySeen.add(coverId); return { ok: false, status: 503, debugId: 'dbg', body: { name: 'SERVICE_UNAVAILABLE' } }; }
     if (vaultId === 'down') return { ok: false, status: 503, debugId: 'dbg', body: { name: 'SERVICE_UNAVAILABLE' } };
+    if (vaultId === 'pending') return { ok: true, status: 201, debugId: 'dbg', body: { id: `ORDER-${coverId}`, status: 'COMPLETED', purchase_units: [{ payments: { captures: [{ id: `CAP-${coverId}`, status: 'PENDING' }] } }] } };
+    if (vaultId === 'declined2xx') return { ok: true, status: 201, debugId: 'dbg', body: { id: `ORDER-${coverId}`, status: 'COMPLETED', purchase_units: [{ payments: { captures: [{ id: `CAP-${coverId}`, status: 'DECLINED' }] } }] } };
     if (vaultId === 'declines') return { ok: false, status: 422, debugId: 'dbg', body: { name: 'UNPROCESSABLE_ENTITY', details: [{ issue: 'INSTRUMENT_DECLINED' }] } };
     return { ok: true, status: 201, debugId: 'dbg', body: { id: `ORDER-${coverId}`, status: 'COMPLETED', purchase_units: [{ payments: { captures: [{ id: `CAP-${coverId}`, status: 'COMPLETED' }] } }] } };
   }),
+  getCapture: vi.fn(async () => ({ ok: true, status: 200, body: { status: captureStatus } })),
   refundCapture: vi.fn(async (captureId: string) => { refunds.push(captureId); return { ok: true, status: 201, debugId: 'dbg', body: { id: 'REF-1' } }; }),
   settlementPayout: vi.fn(), getPayout: vi.fn(),
 }));
 vi.mock('../paypal/invoices', () => ({
-  getInvoice: vi.fn(async (id: string) => { const s = invoiceState.get(id)!; return { status: s.status, paidCents: s.paid, tipCents: 0, dueCents: 4500 - s.paid, payUrl: null, viaPayPal: false, viaRecorded: s.paid > 0 }; }),
-  recordPayment: vi.fn(async (_scope: string, id: string, amount: number) => { recorded.push({ id, amount }); const s = invoiceState.get(id)!; s.paid += amount; s.status = s.paid >= 4500 ? 'MARKED_AS_PAID' : 'PARTIALLY_PAID'; }),
+  getInvoice: vi.fn(async (id: string) => { const s = invoiceState.get(id)!; return { status: s.status, paidCents: s.paid, tipCents: 0, dueCents: 4500 - s.paid, payUrl: null, viaPayPal: false, viaRecorded: s.paid > 0, notes: [...s.notes] }; }),
+  recordPayment: vi.fn(async (_scope: string, id: string, amount: number, ref: string) => {
+    if (recordMode === 'throws') throw new Error('PayPal down');
+    recorded.push({ id, amount }); const s = invoiceState.get(id)!; s.paid += amount; s.notes.push(`Received, ref ${ref}`); s.status = s.paid >= 4500 ? 'MARKED_AS_PAID' : 'PARTIALLY_PAID';
+    if (recordMode === 'lands_then_throws') { recordMode = 'ok'; throw new Error('timeout after landing'); }
+  }),
 }));
 
 import { sql, one } from '../db';
@@ -41,7 +50,7 @@ async function family(email = `p${++n}@example.com`, collection = 'col_a') {
   const fid = `fam_${++n}`, inv = `INV2-TEST-${n}`;
   await sql('INSERT INTO family (id, collection_id, code, parent_email, help_token, family_tag) VALUES ($1,$2,$3,$4,$5,$6)', [fid, collection, `F-${n}`, email, `tok_${n}`, familyTag(email)]);
   await sql("INSERT INTO invoice (id, family_id, paypal_invoice_id, amount_cents, status) VALUES ($1,$2,$3,4500,'SENT')", [`inv_${n}`, fid, inv]);
-  invoiceState.set(inv, { status: 'SENT', paid: 0 });
+  invoiceState.set(inv, { status: 'SENT', paid: 0, notes: [] });
   return { fid, inv, token: `tok_${n}` };
 }
 async function proposal(fid: string, pledge = 'plg_rosa', amount = 4500) {
@@ -57,7 +66,7 @@ beforeAll(async () => {
   await sql("INSERT INTO sponsor (id, display_name) VALUES ('spn_rosa','Rosa')");
 });
 beforeEach(async () => {
-  charges.length = 0; recorded.length = 0; refunds.length = 0;
+  charges.length = 0; recorded.length = 0; refunds.length = 0; recordMode = 'ok'; captureStatus = 'COMPLETED';
   await sql('UPDATE invoice SET cover_lock=NULL');
   await sql('DELETE FROM cover'); await sql('DELETE FROM pledge');
   await sql("INSERT INTO pledge (id, sponsor_id, cap_cents, per_child_cap_cents, vault_id, status) VALUES ('plg_rosa','spn_rosa',25000,6000,'vault_rosa','ACTIVE')");
@@ -168,6 +177,77 @@ describe('cover money path', () => {
     expect((await one('SELECT status FROM help_request WHERE id=$1', [id])).status).toBe('COVERED');
     expect(new Set(charges.map((c) => c.coverId)).size).toBe(1);
     expect(recorded).toHaveLength(1);
+    expect((await one("SELECT used_cents FROM pledge WHERE id='plg_rosa'")).used_cents).toBe(4500);
+  });
+
+  it('a record that landed but reported an error is never repeated and never refunded', async () => {
+    const f = await family();
+    recordMode = 'lands_then_throws';
+    const r = await approve(await proposal(f.fid));
+    expect(r.ok).toBe(true);
+    expect(recorded).toHaveLength(1);
+    expect(refunds).toHaveLength(0);
+    expect((await one("SELECT status FROM cover ORDER BY created_at DESC LIMIT 1")).status).toBe('RECORDED');
+  });
+
+  it('two workers recording the same cover record it once and never refund', async () => {
+    const f = await family();
+    recordMode = 'throws';
+    const id = await proposal(f.fid);
+    await approve(id); // charged, recording failed, back to CHARGED
+    expect((await one("SELECT status FROM cover ORDER BY created_at DESC LIMIT 1")).status).toBe('CHARGED');
+    recordMode = 'ok';
+    const cov = (await one("SELECT id FROM cover ORDER BY created_at DESC LIMIT 1")).id;
+    const { recordCover } = await import('./service');
+    await Promise.all([recordCover(cov), recordCover(cov), reconcileCovers()]);
+    expect(recorded).toHaveLength(1);
+    expect(refunds).toHaveLength(0);
+    expect(charges).toHaveLength(1);
+  });
+
+  it('a capture DECLINED inside a 2xx response is a decline, never recorded', async () => {
+    await sql("UPDATE pledge SET vault_id='declined2xx' WHERE id='plg_rosa'");
+    const f = await family();
+    const id = await proposal(f.fid);
+    expect((await approve(id)).ok).toBe(false);
+    expect(recorded).toHaveLength(0);
+    expect((await one('SELECT status FROM help_request WHERE id=$1', [id])).status).toBe('NEEDS_SPONSOR');
+    expect((await one("SELECT used_cents FROM pledge WHERE id='plg_rosa'")).used_cents).toBe(0);
+  });
+
+  it('a PENDING capture is recorded only after PayPal completes it', async () => {
+    await sql("UPDATE pledge SET vault_id='pending' WHERE id='plg_rosa'");
+    const f = await family();
+    expect((await approve(await proposal(f.fid))).ok).toBe(true);
+    expect(recorded).toHaveLength(0);
+    captureStatus = 'PENDING'; await reconcileCovers(); expect(recorded).toHaveLength(0);
+    captureStatus = 'COMPLETED'; await reconcileCovers(); expect(recorded).toHaveLength(1);
+  });
+
+  it('an unknown charge older than the replay window is never replayed', async () => {
+    await sql("UPDATE pledge SET vault_id='down' WHERE id='plg_rosa'");
+    const f = await family();
+    await approve(await proposal(f.fid));
+    const before = charges.length;
+    await sql("UPDATE cover SET created_at = now() - interval '4 hours' WHERE status='CHARGE_UNKNOWN'");
+    await reconcileCovers();
+    expect(charges.length).toBe(before);
+    expect((await one("SELECT status FROM cover ORDER BY created_at DESC LIMIT 1")).status).toBe('NEEDS_TREASURER');
+  });
+
+  it('a part payment by the family meanwhile refunds the sponsor and asks again for the smaller gap', async () => {
+    const f = await family();
+    const id = await proposal(f.fid);
+    const { getInvoice } = await import('../paypal/invoices');
+    let calls = 0;
+    (getInvoice as any).mockImplementation(async () => (++calls === 1 ? { status: 'SENT', paidCents: 0, dueCents: 4500, tipCents: 0, notes: [] } : { status: 'PARTIALLY_PAID', paidCents: 2000, dueCents: 2500, tipCents: 0, notes: ['parent'] }));
+    const r = await approve(id);
+    expect(r.ok).toBe(true);
+    expect(refunds).toHaveLength(1);
+    const req = await one('SELECT status, amount_cents FROM help_request WHERE id=$1', [id]);
+    expect(req).toEqual({ status: 'NEEDS_SPONSOR', amount_cents: 2500 });
+    expect((await one("SELECT used_cents FROM pledge WHERE id='plg_rosa'")).used_cents).toBe(0);
+    (getInvoice as any).mockImplementation(async (iid: string) => { const st = invoiceState.get(iid)!; return { status: st.status, paidCents: st.paid, tipCents: 0, dueCents: 4500 - st.paid, notes: [...st.notes] }; });
   });
 
   it('if the family paid at the same moment, the sponsor is refunded', async () => {
@@ -177,13 +257,13 @@ describe('cover money path', () => {
     // first read (before charge) says unpaid; the read before recording says paid
     const { getInvoice } = await import('../paypal/invoices');
     let calls = 0;
-    (getInvoice as any).mockImplementation(async () => (++calls === 1 ? { status: 'SENT', paidCents: 0, dueCents: 4500, tipCents: 0 } : { status: 'PAID', paidCents: 4500, dueCents: 0, tipCents: 0 }));
+    (getInvoice as any).mockImplementation(async () => (++calls === 1 ? { status: 'SENT', paidCents: 0, dueCents: 4500, tipCents: 0, notes: [] } : { status: 'PAID', paidCents: 4500, dueCents: 0, tipCents: 0, notes: ['paid by parent'] }));
     const r = await approve(id);
     expect(r.ok).toBe(true);
     expect(refunds).toHaveLength(1);
     expect(recordPayment).not.toHaveBeenCalledWith(expect.anything(), f.inv, expect.anything(), expect.anything(), expect.anything(), expect.anything(), expect.anything());
     expect((await one("SELECT used_cents FROM pledge WHERE id='plg_rosa'")).used_cents).toBe(0);
-    (getInvoice as any).mockImplementation(async (iid: string) => { const st = invoiceState.get(iid)!; return { status: st.status, paidCents: st.paid, tipCents: 0, dueCents: 4500 - st.paid }; });
+    (getInvoice as any).mockImplementation(async (iid: string) => { const st = invoiceState.get(iid)!; return { status: st.status, paidCents: st.paid, tipCents: 0, dueCents: 4500 - st.paid, notes: [...st.notes] }; });
   });
 });
 

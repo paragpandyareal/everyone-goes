@@ -30,8 +30,8 @@ export default function Coordinator() {
     setBusy(null);
   }
   const selReq = reqs.find((r) => r.id === sel);
-  const open = reqs.filter((r) => ['NEW', 'PROPOSED', 'CHARGING', 'NEEDS_STAFF', 'NEEDS_SPONSOR'].includes(r.status));
-  const done = reqs.filter((r) => !['NEW', 'PROPOSED', 'CHARGING', 'NEEDS_STAFF', 'NEEDS_SPONSOR'].includes(r.status));
+  const open = reqs.filter((r) => ['NEW', 'PROPOSED', 'CHARGING', 'NEEDS_STAFF', 'NEEDS_SPONSOR', 'CHARGE_UNKNOWN'].includes(r.status));
+  const done = reqs.filter((r) => !['NEW', 'PROPOSED', 'CHARGING', 'NEEDS_STAFF', 'NEEDS_SPONSOR', 'CHARGE_UNKNOWN'].includes(r.status));
 
   return (
     <div className="space-y-5">

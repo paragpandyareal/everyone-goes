@@ -136,7 +136,12 @@ async function genericCard(ctx: TriageCtx, reason: string) {
 export async function triage(requestId: string): Promise<void> {
   const live = liveMode() && (await underLimit());
   const runId = await startRun('TRIAGE', live ? 'live' : 'mock');
-  const ctx = await loadCtx(requestId, runId);
+  let ctx: TriageCtx;
+  try { ctx = await loadCtx(requestId, runId); } catch (e: any) {
+    await sql("UPDATE help_request SET status='NEEDS_STAFF', fallback='Could not prepare this message for the AI. Passed to staff.', updated_at=now() WHERE id=$1", [requestId]);
+    await endRun(runId, 'ERROR', { error: String(e?.message || e) });
+    return;
+  }
   // Deterministic backstop: anything that looks like a safety concern always reaches the lead, whatever the model says.
   const backstop = SAFEGUARDING_BACKSTOP.test(unseal((await one('SELECT raw_enc FROM help_request WHERE id=$1', [requestId])).raw_enc));
   try {
@@ -186,7 +191,11 @@ export async function liveLoop(ctx: TriageCtx) {
     const thought = res.content.filter((b: any) => b.type === 'thinking' && b.thinking).map((b: any) => b.thinking).join(' ').trim();
     if (thought) await traceRun(ctx.runId, { type: 'ai', name: 'reasoning', summary: thought.replace(/\s+/g, ' ').slice(0, 220) });
     messages.push({ role: 'assistant', content: res.content });
-    if (res.stop_reason === 'max_tokens') { messages.push({ role: 'user', content: 'You ran out of room. Be brief and finish with one finishing tool.' }); continue; }
+    if (res.stop_reason === 'max_tokens') {
+      const cut = res.content.filter((b: any) => b.type === 'tool_use').map((b: any) => ({ type: 'tool_result', tool_use_id: b.id, is_error: true, content: 'Cut off. Call it again.' }));
+      messages.push({ role: 'user', content: [...cut, { type: 'text', text: 'You ran out of room. Be brief and finish with one finishing tool.' }] });
+      continue;
+    }
     // Run reads and actions first, finishing tools last, so a same-turn pause_reminders always happens.
     const uses = res.content.filter((b: any) => b.type === 'tool_use').sort((a: any, b: any) => Number(FINISH.includes(a.name)) - Number(FINISH.includes(b.name)));
     if (!uses.length) { messages.push({ role: 'user', content: 'Finish with propose_cover, route_to_lead or answer_question.' }); continue; }
@@ -208,7 +217,12 @@ export async function liveLoop(ctx: TriageCtx) {
         results.push({ type: 'tool_result', tool_use_id: u.id, is_error: true, content: 'Refused by code checks. Fix and call again: ' + errs.join(' | ') });
       } else {
         calls++;
-        const out = await runTool(ctx, u.name);
+        let out: any;
+        try { out = await runTool(ctx, u.name); } catch (e: any) {
+          await traceRun(ctx.runId, { type: 'tool', name: u.name, summary: `Failed: ${String(e?.message || e).slice(0, 120)}`, ok: false });
+          results.push({ type: 'tool_result', tool_use_id: u.id, is_error: true, content: `Tool failed: ${String(e?.message || e).slice(0, 200)}. Continue without it.` });
+          continue;
+        }
         await traceRun(ctx.runId, { type: 'tool', name: u.name, summary: u.name === 'get_request' ? `Read the redacted message (${ctx.redacted.length} chars)` : u.name === 'list_pledges' ? `${(out as any[]).length} active pledge(s)` : u.name === 'get_invoice' ? `PayPal invoice ${(out as any).status}, ${(out as any).amount_due} due (Agent Toolkit)` : 'PayPal reminders paused (Agent Toolkit)' });
         results.push({ type: 'tool_result', tool_use_id: u.id, content: JSON.stringify(out) });
       }

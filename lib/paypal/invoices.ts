@@ -19,7 +19,11 @@ async function kit(): Promise<Kit> {
 // Calls one Toolkit tool. Returns parsed JSON, or throws with the Toolkit's error text.
 export async function kitCall(name: string, args: object): Promise<any> {
   const k = await kit();
-  const r = await k.handleToolCall({ id: name, type: 'function', function: { name, arguments: JSON.stringify(args) } });
+  // The Toolkit's HTTP client has no timeout; never wait more than 30 seconds.
+  const r: any = await Promise.race([
+    k.handleToolCall({ id: name, type: 'function', function: { name, arguments: JSON.stringify(args) } }),
+    new Promise((_, rej) => setTimeout(() => rej(new Error('PAYPAL_TOOLKIT_TIMEOUT')), 30_000)),
+  ]);
   const text = String(r?.content ?? '');
   let json: any;
   try { json = JSON.parse(text); } catch { json = { raw: text }; }
@@ -29,17 +33,23 @@ export async function kitCall(name: string, args: object): Promise<any> {
   return json;
 }
 
-async function both<T>(scope: string, actor: any, tool: string, kitFn: () => Promise<T>, restFn: () => Promise<T>, summary: (r: T) => string, pid?: (r: T) => string | undefined): Promise<T> {
+// Toolkit first, REST fallback. For writes that must not happen twice, `landed` checks PayPal before falling back
+// (the Toolkit call may have reached PayPal even though it reported an error). Trace writes never trigger a fallback.
+async function both<T>(scope: string, actor: any, tool: string, kitFn: () => Promise<T>, restFn: () => Promise<T>, summary: (r: T) => string, pid?: (r: T) => string | undefined, landed?: () => Promise<boolean>): Promise<T> {
+  let r: T, via: 'Agent Toolkit' | 'REST' = 'Agent Toolkit';
   try {
-    const r = await kitFn();
-    await ptrace({ scope, actor, tool, via: 'Agent Toolkit', summary: summary(r), paypalId: pid?.(r) });
-    return r;
+    r = await kitFn();
   } catch (e: any) {
-    await ptrace({ scope, actor, tool, via: 'Agent Toolkit', summary: `Toolkit failed, using REST: ${String(e.message).slice(0, 120)}`, ok: false });
-    const r = await restFn();
-    await ptrace({ scope, actor, tool, via: 'REST', summary: summary(r), paypalId: pid?.(r) });
-    return r;
+    await ptrace({ scope, actor, tool, via: 'Agent Toolkit', summary: `Toolkit failed: ${String(e.message).slice(0, 120)}`, ok: false }).catch(() => {});
+    if (landed && (await landed().catch(() => false))) {
+      await ptrace({ scope, actor, tool, via: 'Agent Toolkit', summary: 'Checked PayPal: the Toolkit call had landed, no retry' }).catch(() => {});
+      return undefined as T;
+    }
+    r = await restFn();
+    via = 'REST';
   }
+  await ptrace({ scope, actor, tool, via, summary: summary(r), paypalId: pid?.(r) }).catch(() => {});
+  return r;
 }
 
 export type NewInvoice = { email: string; reference: string; itemName: string; amountCents: number; note: string; dueDate?: string };
@@ -92,7 +102,7 @@ export async function qrCode(scope: string, invoiceId: string): Promise<string |
   } catch { return null; }
 }
 
-export type InvoiceState = { status: string; paidCents: number; tipCents: number; dueCents: number; payUrl: string | null; viaPayPal: boolean; viaRecorded: boolean };
+export type InvoiceState = { status: string; paidCents: number; tipCents: number; dueCents: number; payUrl: string | null; viaPayPal: boolean; viaRecorded: boolean; notes: string[] };
 
 export async function getInvoice(invoiceId: string): Promise<InvoiceState> {
   const r = await pp('trips', 'GET', `/v2/invoicing/invoices/${invoiceId}`);
@@ -107,6 +117,7 @@ export async function getInvoice(invoiceId: string): Promise<InvoiceState> {
     payUrl: b.detail?.metadata?.recipient_view_url || null,
     viaPayPal: tx.some((t) => t.type === 'PAYPAL'),
     viaRecorded: tx.some((t) => t.type === 'EXTERNAL'),
+    notes: tx.map((t) => String(t.note || '')),
   };
 }
 
@@ -116,7 +127,8 @@ export async function recordPayment(scope: string, invoiceId: string, amountCent
   return both(scope, actor, 'record_payment_for_invoice',
     () => kitCall('record_payment_for_invoice', args),
     async () => { const r = await pp('trips', 'POST', `/v2/invoicing/invoices/${invoiceId}/payments`, { method: 'OTHER', payment_date: args.payment_date, amount: args.amount, note: args.note }, { requestId }); if (!r.ok) throw new Error(`record ${r.status} debug ${r.debugId}`); return r.body; },
-    () => `Recorded as OTHER ${value(amountCents)} USD, "Received, ref …", the same as cash at the office`, () => shortId(invoiceId));
+    () => `Recorded as OTHER ${value(amountCents)} USD, "Received, ref …", the same as cash at the office`, () => shortId(invoiceId),
+    async () => (await getInvoice(invoiceId)).notes.some((n) => n.includes(ref)));
 }
 
 export async function pauseReminders(scope: string, invoiceId: string) {

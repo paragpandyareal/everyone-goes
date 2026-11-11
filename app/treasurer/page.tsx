@@ -29,6 +29,7 @@ export default function Treasurer() {
         <div><div className="text-xs font-extrabold uppercase text-muted">Not yet settled</div><div className="text-2xl font-black">{data.unsettledCount} covers = {usd(data.unsettledCents)}</div></div>
         <button className="btn btn-primary" disabled={busy || !data.unsettledCount} onClick={settle}>{busy ? 'Sending Payout…' : 'Settle now with one PayPal Payout'}</button>
       </div>
+      {(data.attention || []).length ? <Notice tone="coral">{data.attention.length} cover(s) need a person to check PayPal before anything else happens: {data.attention.map((a: any) => `${usd(a.amount_cents)} (${a.error})`).join('; ')}</Notice> : null}
       {msg ? <Notice tone={msg.ok ? 'leaf' : 'coral'}>{msg.ok ? `Payout batch ${msg.batch} created.` : msg.message}</Notice> : null}
       <div className="grid gap-5 lg:grid-cols-2">
         <div className="card p-4">

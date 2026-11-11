@@ -107,7 +107,7 @@ _Results added after the run._
 
 ## 8. Tests
 
-`npx vitest run`: 42 tests.
+`npx vitest run`: 48 tests.
 - Money path with a real database: one charge per approval, forged and replayed approvals, two requests for one invoice at once, pledge cap racing, decline handling, transient errors replayed with the same request ID, unknown outcomes reconciled, refund when the family paid at the same moment.
 - Anti-abuse: term limit across collections, class share, link limits.
 - Privacy: every role's view.

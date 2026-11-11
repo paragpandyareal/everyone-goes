@@ -79,12 +79,13 @@ export async function parentView(token: string) {
 
 export async function treasurerView() {
   // No EG reference here: the Trips account shows "Received, ref EG-xxxx" on invoices, so a reference would link a cover to a family.
-  const covers = await sql("SELECT amount_cents, capture_id, status, settlement_id, seeded, date_trunc('day', created_at) AS day FROM cover WHERE status IN ('CHARGED','RECORDED') ORDER BY created_at DESC");
+  const covers = await sql("SELECT amount_cents, capture_id, status, settlement_id, seeded, date_trunc('day', created_at) AS day FROM cover WHERE status IN ('CHARGED','RECORDED','CHARGE_PENDING') ORDER BY created_at DESC");
   const settlements = await sql('SELECT * FROM settlement ORDER BY created_at DESC');
-  const unsettled = covers.filter((c) => !c.settlement_id && !c.seeded);
+  const unsettled = covers.filter((c) => !c.settlement_id && !c.seeded && c.status === 'RECORDED');
   const pay = await one(`SELECT count(*) FILTER (WHERE paid_via='PAYPAL')::int AS on_paypal, count(*) FILTER (WHERE status IN ('PAID','MARKED_AS_PAID') AND paid_via IS DISTINCT FROM 'PAYPAL')::int AS recorded,
     COALESCE(sum(tip_cents),0)::int AS tips FROM invoice`);
-  return { covers, settlements, unsettledCents: unsettled.reduce((a, c) => a + c.amount_cents, 0), unsettledCount: unsettled.length, payments: pay };
+  const attention = await sql("SELECT amount_cents, capture_id, error, date_trunc('day', created_at) AS day FROM cover WHERE status='NEEDS_TREASURER' ORDER BY created_at");
+  return { attention, covers, settlements, unsettledCents: unsettled.reduce((a, c) => a + c.amount_cents, 0), unsettledCount: unsettled.length, payments: pay };
 }
 
 export async function traceView(scope: string, runId?: string | null) {

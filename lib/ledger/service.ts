@@ -4,11 +4,11 @@ import { sql, one, newId } from '../db';
 import { seal, unseal } from '../privacy/seal';
 import { consumeApproval } from '../approval';
 import { getInvoice, recordPayment } from '../paypal/invoices';
-import { chargeVault, settlementPayout, getPayout, refundCapture } from '../paypal/coverfund';
+import { chargeVault, settlementPayout, getPayout, refundCapture, getCapture } from '../paypal/coverfund';
 import { hasApp, usd } from '../paypal/client';
 import { ptrace } from '../trace';
 import { pledgeProblems, coverAmountProblems, isPaid } from './rules';
-import { softSignals, hardCapProblems } from './abuse';
+import { softSignals, hardCapProblems, familyTag } from './abuse';
 
 export const publicRef = () => `EG-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
 
@@ -41,15 +41,31 @@ export async function pledgesFor(kind: string): Promise<any[]> {
 }
 
 // ---------- the cover (PRD 3.3 steps 5 to 9, PRD 7.2 state rules) ----------
+// Cover states: APPROVED -> (CHARGED | CHARGE_PENDING | CHARGE_UNKNOWN | FAILED) -> RECORDING -> (RECORDED | REFUNDED)
+//               CHARGE_UNKNOWN older than the replay window -> NEEDS_TREASURER (a person checks PayPal; never replayed)
 // Safety properties, each covered by lib/ledger/cover.test.ts:
-//  - one approval charges at most once (atomic claim on the request + single use approval)
-//  - one cover at a time per invoice (invoice lock), and never while an earlier cover is unrecorded
-//  - the pledge cap is reserved atomically before charging, released on a definite decline
+//  - one approval charges at most once (atomic request claim + single use approval)
+//  - one live cover per invoice (invoice lock + no other unfinished cover on that invoice)
+//  - the pledge cap is reserved atomically before charging; released exactly once on a definite decline or refund
 //  - only the approved pledge is charged; a decline returns the card to the coordinator
-//  - an unclear PayPal result is retried with the same PayPal-Request-Id (PayPal replays the original), never a new charge
-//  - if a parent paid at the same moment and the cover cannot be recorded, the sponsor is refunded
+//  - an unclear PayPal result is replayed only with the same PayPal-Request-Id and only inside the replay window
+//  - a cover is recorded by one worker at a time; a record that landed is detected and never refunded or repeated
+//  - a sponsor is refunded only if the family's invoice no longer needs the money, and never after settlement
 type CoverResult = { ok: boolean; message: string; captureId?: string; needsReview?: boolean };
-const DEFINITE_DECLINE = (r: any) => r.status >= 400 && r.status < 500;
+type ChargeOutcome = 'CAPTURED' | 'PENDING' | 'DECLINED' | 'UNKNOWN';
+const REPLAY_WINDOW_HOURS = 3;
+
+export function classifyCharge(r: any): ChargeOutcome {
+  const cap = r?.body?.purchase_units?.[0]?.payments?.captures?.[0];
+  if (r?.ok) {
+    if (r.body?.status === 'COMPLETED' && cap?.status === 'COMPLETED') return 'CAPTURED';
+    if (cap?.status === 'PENDING') return 'PENDING';
+    if (['DECLINED', 'FAILED'].includes(cap?.status) || r.body?.status === 'PAYER_ACTION_REQUIRED' || r.body?.status === 'VOIDED') return 'DECLINED';
+    return 'UNKNOWN';
+  }
+  if (r?.status >= 400 && r?.status < 500) return 'DECLINED';
+  return 'UNKNOWN';
+}
 
 async function chargeWithReplay(coverId: string, ref: string, vaultId: string, amountCents: number) {
   let last: any = null;
@@ -61,6 +77,16 @@ async function chargeWithReplay(coverId: string, ref: string, vaultId: string, a
     await new Promise((s) => setTimeout(s, 800 * (i + 1)));
   }
   return last;
+}
+
+const invTag = (invoiceRowId: string) => familyTag(`invoice:${invoiceRowId}`);
+const ACTIVE_COVER = "('APPROVED','CHARGED','CHARGE_PENDING','CHARGE_UNKNOWN','RECORDING','NEEDS_TREASURER')";
+
+async function releasePledgeOnce(coverId: string, newStatus: 'FAILED' | 'REFUNDED'): Promise<boolean> {
+  const c = await one(`UPDATE cover SET status=$2 WHERE id=$1 AND status NOT IN ('FAILED','REFUNDED') RETURNING pledge_id, amount_cents`, [coverId, newStatus]);
+  if (!c) return false;
+  await sql("UPDATE pledge SET used_cents=GREATEST(0, used_cents-$2), status=CASE WHEN status='EXHAUSTED' THEN 'ACTIVE' ELSE status END WHERE id=$1", [c.pledge_id, c.amount_cents]);
+  return true;
 }
 
 export async function performCover(approvalToken: string, override = false): Promise<CoverResult> {
@@ -75,126 +101,177 @@ export async function performCover(approvalToken: string, override = false): Pro
   };
   if (claims.amountCents !== req.amount_cents || claims.pledgeId !== req.pledge_id) return fail('Approval does not match the proposal');
 
-  const familyId = unseal(req.sealed_family);
-  const coll = await one('SELECT c.* FROM collection c JOIN family f ON f.collection_id=c.id WHERE f.id=$1', [familyId]);
-  const famRow = await one('SELECT family_tag FROM family WHERE id=$1', [familyId]);
-  // Soft signals are re-checked at approval time (they may have changed since the proposal).
-  const sig = await softSignals(famRow?.family_tag || null, coll.id);
-  if (sig.reasons.length && !override) {
-    await sql('UPDATE help_request SET review_reason=$2 WHERE id=$1', [req.id, sig.reasons.join(' · ')]);
-    return { ...(await fail(`Second look needed: ${sig.reasons.join('; ')}`)), needsReview: true };
-  }
-  if (sig.reasons.length && override) {
-    await sql("UPDATE help_request SET override_by='coordinator' WHERE id=$1", [req.id]);
-    await ptrace({ scope, actor: 'coordinator', tool: 'second_look_override', via: 'Code', summary: `Coordinator approved after a second look: ${sig.reasons.join('; ')}`, approvedBy: 'coordinator' });
-  }
+  let inv0: any = null, locked = false, reservedPledge: any = null, coverId: string | null = null;
+  const unlock = async () => { if (locked && inv0) { await sql('UPDATE invoice SET cover_lock=NULL WHERE id=$1', [inv0.id]); locked = false; } };
+  try {
+    const familyId = unseal(req.sealed_family);
+    const coll = await one('SELECT c.* FROM collection c JOIN family f ON f.collection_id=c.id WHERE f.id=$1', [familyId]);
+    const famRow = await one('SELECT family_tag FROM family WHERE id=$1', [familyId]);
+    // Soft signals are re-checked at approval time (they may have changed since the proposal).
+    const sig = await softSignals(famRow?.family_tag || null, coll.id);
+    if (sig.reasons.length && !override) {
+      await sql('UPDATE help_request SET review_reason=$2 WHERE id=$1', [req.id, sig.reasons.join(' · ')]);
+      return { ...(await fail(`Second look needed: ${sig.reasons.join('; ')}`)), needsReview: true };
+    }
+    if (sig.reasons.length && override) {
+      await sql("UPDATE help_request SET override_by='coordinator' WHERE id=$1", [req.id]);
+      await ptrace({ scope, actor: 'coordinator', tool: 'second_look_override', via: 'Code', summary: `Coordinator approved after a second look: ${sig.reasons.join('; ')}`, approvedBy: 'coordinator' });
+    }
 
-  // One cover at a time per invoice. A lock older than 10 minutes is stale (crash) unless an earlier cover is still unrecorded.
-  const inv0 = await one('SELECT * FROM invoice WHERE family_id=$1', [familyId]);
-  const locked = await one("UPDATE invoice SET cover_lock=now() WHERE id=$1 AND (cover_lock IS NULL OR cover_lock < now() - interval '10 minutes') RETURNING *", [inv0.id]);
-  if (!locked) return fail('Another cover for this invoice is in progress or waiting to be recorded');
-  const unlock = () => sql('UPDATE invoice SET cover_lock=NULL WHERE id=$1', [inv0.id]);
+    // One live cover per invoice: a fresh lock, and no other unfinished cover on this invoice.
+    inv0 = await one('SELECT * FROM invoice WHERE family_id=$1', [familyId]);
+    const tag = invTag(inv0.id);
+    locked = !!(await one(`UPDATE invoice SET cover_lock=now() WHERE id=$1 AND (cover_lock IS NULL OR cover_lock < now() - interval '10 minutes')
+      AND NOT EXISTS (SELECT 1 FROM cover WHERE inv_tag=$2 AND status IN ${ACTIVE_COVER}) RETURNING id`, [inv0.id, tag]));
+    if (!locked) return fail('Another cover for this invoice is in progress or waiting to be recorded');
 
-  let state;
-  try { state = await getInvoice(inv0.paypal_invoice_id); } catch { await unlock(); return fail('Could not read the invoice from PayPal. Try again.'); }
-  const amountErr = coverAmountProblems(req.amount_cents, state.dueCents, state.status);
-  if (amountErr.length) { await unlock(); return fail(`Refused by code: ${amountErr.join('; ')}`); }
+    let state;
+    try { state = await getInvoice(inv0.paypal_invoice_id); } catch { await unlock(); return fail('Could not read the invoice from PayPal. Try again.'); }
+    const amountErr = coverAmountProblems(req.amount_cents, state.dueCents, state.status);
+    if (amountErr.length) { await unlock(); return fail(`Refused by code: ${amountErr.join('; ')}`); }
 
-  // Only the pledge the coordinator approved.
-  const p = await one('SELECT * FROM pledge WHERE id=$1', [claims.pledgeId]);
-  const problems = p ? [...pledgeProblems(p, coll.kind, req.amount_cents), ...(await hardCapProblems(p.id))] : ['pledge not found'];
-  if (problems.length) {
-    await unlock();
-    await ptrace({ scope, actor: 'system', tool: 'check_pledge', via: 'Code', summary: `Not charged: ${problems.join('; ')}`, ok: false });
-    return fail(`Not charged: ${problems.join('; ')}`, 'NEEDS_SPONSOR');
-  }
-  // Reserve the amount atomically, so two approvals at once can never pass the caps.
-  const reserved = await one("UPDATE pledge SET used_cents=used_cents+$2 WHERE id=$1 AND status='ACTIVE' AND used_cents+$2<=cap_cents AND $2<=per_child_cap_cents RETURNING id", [p.id, req.amount_cents]);
-  if (!reserved) { await unlock(); return fail('The pledge no longer has room for this amount', 'NEEDS_SPONSOR'); }
-  const release = () => sql("UPDATE pledge SET used_cents=GREATEST(0, used_cents-$2), status=CASE WHEN status='EXHAUSTED' THEN 'ACTIVE' ELSE status END WHERE id=$1", [p.id, req.amount_cents]);
+    // Only the pledge the coordinator approved.
+    const p = await one('SELECT * FROM pledge WHERE id=$1', [claims.pledgeId]);
+    const problems = p ? [...pledgeProblems(p, coll.kind, req.amount_cents), ...(await hardCapProblems(p.id))] : ['pledge not found'];
+    if (problems.length) {
+      await unlock();
+      await ptrace({ scope, actor: 'system', tool: 'check_pledge', via: 'Code', summary: `Not charged: ${problems.join('; ')}`, ok: false });
+      return fail(`Not charged: ${problems.join('; ')}`, 'NEEDS_SPONSOR');
+    }
+    // Reserve the amount atomically, so two approvals at once can never pass the caps.
+    reservedPledge = await one("UPDATE pledge SET used_cents=used_cents+$2 WHERE id=$1 AND status='ACTIVE' AND used_cents+$2<=cap_cents AND $2<=per_child_cap_cents RETURNING id", [p.id, req.amount_cents]);
+    if (!reservedPledge) { await unlock(); return fail('The pledge no longer has room for this amount', 'NEEDS_SPONSOR'); }
 
-  const coverId = newId('cov');
-  const ref = publicRef();
-  await sql('INSERT INTO cover (id, sealed_request, pledge_id, amount_cents, public_ref, status, family_tag, collection_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)', [coverId, seal(req.id), p.id, req.amount_cents, ref, 'APPROVED', famRow?.family_tag || null, coll.id]);
-  const r = await chargeWithReplay(coverId, ref, p.vault_id, req.amount_cents);
-  const cap = r.body?.purchase_units?.[0]?.payments?.captures?.[0];
-  const completed = r.ok && r.body?.status === 'COMPLETED' && (cap?.status === 'COMPLETED' || cap?.status === 'PENDING');
-  await ptrace({ scope, actor: 'system', tool: 'charge_pledge', via: 'REST', summary: completed ? `Sponsor absent PayPal capture ${usd(req.amount_cents)} from the saved account, ${cap.status}` : `Charge not completed (${r.status} ${r.body?.details?.[0]?.issue || r.body?.name || ''})`, paypalId: cap?.id || r.body?.id, debugId: r.debugId, approvedBy: 'coordinator', ok: completed });
+    coverId = newId('cov');
+    const ref = publicRef();
+    await sql('INSERT INTO cover (id, sealed_request, pledge_id, amount_cents, public_ref, status, family_tag, collection_id, inv_tag) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
+      [coverId, seal(req.id), p.id, req.amount_cents, ref, 'APPROVED', famRow?.family_tag || null, coll.id, tag]);
+    // From here the cover row owns the reservation and the lock; reconcileCovers() resolves it if this process dies.
+    const r = await chargeWithReplay(coverId, ref, p.vault_id, req.amount_cents);
+    const outcome = classifyCharge(r);
+    const cap = r.body?.purchase_units?.[0]?.payments?.captures?.[0];
+    await ptrace({ scope, actor: 'system', tool: 'charge_pledge', via: 'REST', summary: outcome === 'CAPTURED' ? `Sponsor absent PayPal capture ${usd(req.amount_cents)} from the saved account, COMPLETED` : `Charge ${outcome.toLowerCase()} (${r.status} ${cap?.status || r.body?.details?.[0]?.issue || r.body?.name || ''})`, paypalId: cap?.id || r.body?.id, debugId: r.debugId, approvedBy: 'coordinator', ok: outcome === 'CAPTURED' }).catch(() => {});
 
-  if (!completed) {
-    if (DEFINITE_DECLINE(r)) {
-      await release(); await unlock();
-      await sql("UPDATE cover SET status='FAILED', debug_id=$2, error=$3 WHERE id=$1", [coverId, r.debugId, JSON.stringify(r.body?.details || r.body?.name || r.status)]);
+    if (outcome === 'DECLINED') {
+      await sql('UPDATE cover SET debug_id=$2, error=$3 WHERE id=$1', [coverId, r.debugId, JSON.stringify(cap?.status || r.body?.details || r.body?.name || r.status)]);
+      await releasePledgeOnce(coverId, 'FAILED');
+      await unlock();
       return fail("The sponsor's PayPal account declined. Match this request to another pledge.", 'NEEDS_SPONSOR');
     }
-    // Unknown outcome: keep the reservation and the lock; reconcileCovers() replays the same request id.
-    await sql("UPDATE cover SET status='CHARGE_UNKNOWN', debug_id=$2, error=$3 WHERE id=$1", [coverId, r.debugId, JSON.stringify(r.body?.name || r.status)]);
-    await sql("UPDATE invoice SET cover_lock=now() + interval '1 day' WHERE id=$1", [inv0.id]);
-    return fail('PayPal did not confirm the charge. It will be checked automatically; nothing will be charged twice.', 'CHARGE_UNKNOWN');
+    if (outcome === 'UNKNOWN') {
+      await sql("UPDATE cover SET status='CHARGE_UNKNOWN', debug_id=$2, error=$3 WHERE id=$1", [coverId, r.debugId, JSON.stringify(r.body?.name || r.status)]);
+      return fail('PayPal did not confirm the charge. It is checked automatically and will never be charged twice.', 'CHARGE_UNKNOWN');
+    }
+    await sql('UPDATE cover SET status=$2, paypal_order_id=$3, capture_id=$4, debug_id=$5 WHERE id=$1', [coverId, outcome === 'CAPTURED' ? 'CHARGED' : 'CHARGE_PENDING', r.body.id, cap.id, r.debugId]);
+    await sql("UPDATE pledge SET status=CASE WHEN used_cents >= cap_cents THEN 'EXHAUSTED' ELSE status END WHERE id=$1", [p.id]);
+    if (outcome === 'PENDING') {
+      await sql("UPDATE help_request SET status='COVERED', updated_at=now(), fallback='PayPal is still completing this payment' WHERE id=$1", [req.id]);
+      return { ok: true, message: 'PayPal accepted the payment and is completing it. It is recorded on the invoice once PayPal confirms.', captureId: cap.id };
+    }
+    await sql("UPDATE help_request SET status='COVERED', updated_at=now(), fallback=NULL WHERE id=$1", [req.id]);
+    const recorded = await recordCover(coverId);
+    return { ok: true, message: recorded === 'RECORDED' ? 'Covered and recorded' : recorded === 'REFUNDED' ? 'The family paid at the same moment, so the sponsor was refunded' : 'Charged; recording on the invoice will retry', captureId: cap.id };
+  } catch (e: any) {
+    // Before a cover row exists nothing has been charged: undo cleanly. After it exists, reconcileCovers() owns it.
+    if (!coverId) {
+      if (reservedPledge) await sql('UPDATE pledge SET used_cents=GREATEST(0, used_cents-$2) WHERE id=$1', [claims.pledgeId, req.amount_cents]).catch(() => {});
+      await unlock().catch(() => {});
+      return fail('Something went wrong before charging. Nothing was charged. Try again.');
+    }
+    await sql("UPDATE cover SET status='CHARGE_UNKNOWN', error=$2 WHERE id=$1 AND status='APPROVED'", [coverId, String(e?.message || e).slice(0, 200)]).catch(() => {});
+    return fail('Something went wrong while charging. It is checked automatically and will never be charged twice.', 'CHARGE_UNKNOWN');
   }
-  await sql("UPDATE cover SET status='CHARGED', paypal_order_id=$2, capture_id=$3, debug_id=$4 WHERE id=$1", [coverId, r.body.id, cap.id, r.debugId]);
-  await sql("UPDATE pledge SET status=CASE WHEN used_cents >= cap_cents THEN 'EXHAUSTED' ELSE status END WHERE id=$1", [p.id]);
-  await sql("UPDATE help_request SET status='COVERED', updated_at=now(), fallback=NULL WHERE id=$1", [req.id]);
-  const recorded = await recordCover(coverId);
-  return { ok: true, message: recorded === 'RECORDED' ? 'Covered and recorded' : recorded === 'REFUNDED' ? 'The family paid at the same moment, so the sponsor was refunded' : 'Charged; recording on the invoice will retry', captureId: cap.id };
 }
 
-// Records a charged cover on the family's invoice. Never charges. If the invoice was paid by someone else meanwhile, refunds the sponsor.
+// Records a charged cover on the family's invoice. Never charges. One worker at a time (RECORDING claim).
 export async function recordCover(coverId: string): Promise<'RECORDED' | 'REFUNDED' | 'PENDING'> {
-  const c = await one('SELECT * FROM cover WHERE id=$1', [coverId]);
+  const c = await one("UPDATE cover SET status='RECORDING', recording_at=now() WHERE id=$1 AND (status='CHARGED' OR (status='RECORDING' AND recording_at < now() - interval '5 minutes')) RETURNING *", [coverId]);
+  if (!c) return 'PENDING';
+  const back = () => sql("UPDATE cover SET status='CHARGED' WHERE id=$1 AND status='RECORDING'", [c.id]);
   const reqId = unseal(c.sealed_request);
   const req = await one('SELECT * FROM help_request WHERE id=$1', [reqId]);
   const familyId = req ? unseal(req.sealed_family) : null;
   const inv = familyId ? await one('SELECT * FROM invoice WHERE family_id=$1', [familyId]) : null;
-  if (!inv) return 'PENDING';
+  if (!inv) { await sql("UPDATE cover SET status='NEEDS_TREASURER', error='invoice not found' WHERE id=$1", [c.id]); return 'PENDING'; }
+  const done = async () => {
+    await sql("UPDATE cover SET recorded=true, status='RECORDED' WHERE id=$1", [c.id]);
+    await sql('UPDATE invoice SET cover_lock=NULL WHERE id=$1', [inv.id]);
+    await syncInvoice(inv, true).catch(() => {});
+    return 'RECORDED' as const;
+  };
   for (let i = 0; i < 3; i++) {
     let state;
     try { state = await getInvoice(inv.paypal_invoice_id); } catch { await new Promise((s) => setTimeout(s, 1000)); continue; }
+    // Our own record may have landed on an earlier attempt: never repeat it, never refund it.
+    if (state.notes.some((n) => n.includes(c.public_ref))) return done();
     if (state.dueCents < c.amount_cents) {
-      // Paid by the family (or the office) in the meantime: return the sponsor's money.
+      // The family (or the office) paid in the meantime. Refund the sponsor once, unless the cover was already settled.
+      if (c.settlement_id) { await sql("UPDATE cover SET status='NEEDS_TREASURER', error='invoice paid after settlement' WHERE id=$1", [c.id]); return 'PENDING'; }
       const rf = await refundCapture(c.capture_id, c.id);
-      await ptrace({ scope: `req:${reqId}`, actor: 'system', tool: 'refund_capture', via: 'REST', summary: rf.ok ? 'Invoice was already paid, so the sponsor was refunded in full' : `Refund failed (${rf.status}), needs the treasurer`, paypalId: rf.body?.id, debugId: rf.debugId, ok: rf.ok });
-      if (rf.ok) {
-        await sql("UPDATE cover SET status='REFUNDED' WHERE id=$1", [c.id]);
-        await sql("UPDATE pledge SET used_cents=GREATEST(0, used_cents-$2), status=CASE WHEN status='EXHAUSTED' THEN 'ACTIVE' ELSE status END WHERE id=$1", [c.pledge_id, c.amount_cents]);
+      await ptrace({ scope: `req:${reqId}`, actor: 'system', tool: 'refund_capture', via: 'REST', summary: rf.ok ? 'The invoice no longer needed this amount, so the sponsor was refunded in full' : `Refund failed (${rf.status}), passed to the treasurer`, paypalId: rf.body?.id, debugId: rf.debugId, ok: rf.ok }).catch(() => {});
+      if (!rf.ok) { await sql("UPDATE cover SET status='NEEDS_TREASURER', error=$2 WHERE id=$1", [c.id, `refund failed ${rf.status}`]); return 'PENDING'; }
+      await releasePledgeOnce(c.id, 'REFUNDED');
+      await sql('UPDATE invoice SET cover_lock=NULL WHERE id=$1', [inv.id]);
+      if (state.dueCents > 0) {
+        // Part paid: ask again for the smaller gap.
+        await sql("UPDATE help_request SET status='NEEDS_SPONSOR', amount_cents=$2, kind_of_help='PART_COVER', summary=regexp_replace(COALESCE(summary,''), '\\$[0-9.]+', $3), fallback='The family paid part of it meanwhile. Match the smaller gap.', updated_at=now() WHERE id=$1",
+          [reqId, state.dueCents, `$${(state.dueCents / 100).toFixed(0)}`]);
+      } else {
         await sql("UPDATE help_request SET status='ANSWERED', reply_text=COALESCE(reply_text,'This contribution is already paid.'), updated_at=now() WHERE id=$1", [reqId]);
-        await sql('UPDATE invoice SET cover_lock=NULL WHERE id=$1', [inv.id]);
-        return 'REFUNDED';
       }
-      return 'PENDING';
+      return 'REFUNDED';
     }
     try {
       await recordPayment(`req:${reqId}`, inv.paypal_invoice_id, c.amount_cents, c.public_ref, 'system', 'coordinator', `eg-rec-${c.id}`);
-      await sql("UPDATE cover SET recorded=true, status='RECORDED' WHERE id=$1", [c.id]);
-      await sql('UPDATE invoice SET cover_lock=NULL WHERE id=$1', [inv.id]);
-      await syncInvoice(inv, true);
-      return 'RECORDED';
+      return done();
     } catch { await new Promise((s) => setTimeout(s, 1500)); }
   }
-  // Keep the invoice locked until this cover is recorded, so no second cover can start.
-  await sql("UPDATE invoice SET cover_lock=now() + interval '1 day' WHERE id=$1", [inv.id]);
+  await back();
   return 'PENDING';
 }
 
-// Background repair: record charged covers, and resolve unknown charges by replaying the same PayPal request id.
+// Background repair. Runs when staff open the console or approve, so stuck states resolve without a person.
 export async function reconcileCovers() {
-  for (const c of await sql("SELECT id FROM cover WHERE status='CHARGED' AND recorded=false")) await recordCover(c.id).catch(() => {});
+  // A process that died mid-charge leaves APPROVED covers: treat them as unknown.
+  await sql("UPDATE cover SET status='CHARGE_UNKNOWN' WHERE status='APPROVED' AND created_at < now() - interval '2 minutes'");
+  for (const c of await sql("SELECT id FROM cover WHERE status IN ('CHARGED','RECORDING')")) await recordCover(c.id).catch(() => {});
+  // Pending captures: ask PayPal.
+  for (const c of await sql("SELECT * FROM cover WHERE status='CHARGE_PENDING'")) {
+    const g = await getCapture(c.capture_id).catch(() => null);
+    const st = g?.body?.status;
+    if (st === 'COMPLETED') { await sql("UPDATE cover SET status='CHARGED' WHERE id=$1 AND status='CHARGE_PENDING'", [c.id]); await recordCover(c.id).catch(() => {}); }
+    else if (['DECLINED', 'FAILED', 'VOIDED'].includes(st)) await resolveDecline(c);
+  }
+  // Unknown charges: replay with the same request id inside the window; after it, a person checks PayPal.
   for (const c of await sql("SELECT c.*, p.vault_id FROM cover c JOIN pledge p ON p.id=c.pledge_id WHERE c.status='CHARGE_UNKNOWN'")) {
+    if (Date.now() - new Date(c.created_at).getTime() > REPLAY_WINDOW_HOURS * 3600_000) {
+      await sql("UPDATE cover SET status='NEEDS_TREASURER', error='unknown charge outside the replay window: check PayPal before acting' WHERE id=$1 AND status='CHARGE_UNKNOWN'", [c.id]);
+      continue;
+    }
     const r = await chargeWithReplay(c.id, c.public_ref, c.vault_id, c.amount_cents);
+    const outcome = classifyCharge(r);
     const cap = r.body?.purchase_units?.[0]?.payments?.captures?.[0];
     const reqId = unseal(c.sealed_request);
-    if (r.ok && r.body?.status === 'COMPLETED' && cap) {
-      await sql("UPDATE cover SET status='CHARGED', paypal_order_id=$2, capture_id=$3 WHERE id=$1", [c.id, r.body.id, cap.id]);
+    if (outcome === 'CAPTURED' || outcome === 'PENDING') {
+      await sql("UPDATE cover SET status=$2, paypal_order_id=$3, capture_id=$4 WHERE id=$1 AND status='CHARGE_UNKNOWN'", [c.id, outcome === 'CAPTURED' ? 'CHARGED' : 'CHARGE_PENDING', r.body.id, cap.id]);
+      await sql("UPDATE pledge SET status=CASE WHEN used_cents >= cap_cents THEN 'EXHAUSTED' ELSE status END WHERE id=$1", [c.pledge_id]);
       await sql("UPDATE help_request SET status='COVERED', fallback=NULL, updated_at=now() WHERE id=$1", [reqId]);
-      await recordCover(c.id).catch(() => {});
-    } else if (DEFINITE_DECLINE(r)) {
-      await sql("UPDATE cover SET status='FAILED' WHERE id=$1", [c.id]);
-      await sql("UPDATE pledge SET used_cents=GREATEST(0, used_cents-$2) WHERE id=$1", [c.pledge_id, c.amount_cents]);
-      await sql("UPDATE help_request SET status='NEEDS_SPONSOR', fallback='The charge did not go through. Match to another pledge.' WHERE id=$1", [reqId]);
-      const req = await one('SELECT sealed_family FROM help_request WHERE id=$1', [reqId]);
-      if (req) await sql('UPDATE invoice SET cover_lock=NULL WHERE family_id=$1', [unseal(req.sealed_family)]);
-    }
+      if (outcome === 'CAPTURED') await recordCover(c.id).catch(() => {});
+    } else if (outcome === 'DECLINED') await resolveDecline(c);
   }
+  // Requests stuck in CHARGING with no cover behind them (crash before charging) go back to the coordinator.
+  const covered = new Set((await sql('SELECT sealed_request FROM cover')).map((c) => { try { return unseal(c.sealed_request); } catch { return ''; } }));
+  for (const r of await sql("SELECT id FROM help_request WHERE status='CHARGING' AND updated_at < now() - interval '5 minutes'")) {
+    if (!covered.has(r.id)) await sql("UPDATE help_request SET status='PROPOSED', fallback='Interrupted before charging. Nothing was charged.' WHERE id=$1 AND status='CHARGING'", [r.id]);
+  }
+}
+
+async function resolveDecline(c: any) {
+  await releasePledgeOnce(c.id, 'FAILED');
+  const reqId = unseal(c.sealed_request);
+  await sql("UPDATE help_request SET status='NEEDS_SPONSOR', fallback='The charge did not go through. Match to another pledge.', updated_at=now() WHERE id=$1", [reqId]);
+  const req = await one('SELECT sealed_family FROM help_request WHERE id=$1', [reqId]);
+  if (req) await sql('UPDATE invoice SET cover_lock=NULL WHERE family_id=$1', [unseal(req.sealed_family)]);
 }
 export const retryUnrecorded = reconcileCovers;
 
@@ -206,7 +283,7 @@ export async function settle(): Promise<any> {
   if (!stuck) {
     await sql("INSERT INTO settlement (id, total_cents, cover_count, status) VALUES ($1,0,0,'CLAIMING')", [id]);
     // Atomic claim: two settle() calls can never take the same covers.
-    const claimed = await sql("UPDATE cover SET settlement_id=$1 WHERE settlement_id IS NULL AND seeded=false AND status IN ('CHARGED','RECORDED') RETURNING amount_cents", [id]);
+    const claimed = await sql("UPDATE cover SET settlement_id=$1 WHERE settlement_id IS NULL AND seeded=false AND status='RECORDED' RETURNING amount_cents", [id]);
     if (!claimed.length) { await sql('DELETE FROM settlement WHERE id=$1', [id]); return { ok: false, message: 'No unsettled covers' }; }
     await sql("UPDATE settlement SET total_cents=$2, cover_count=$3, status='PENDING' WHERE id=$1", [id, claimed.reduce((a, c) => a + c.amount_cents, 0), claimed.length]);
   }
@@ -226,7 +303,12 @@ export async function refreshSettlements() {
   gs.__egSet = Date.now();
   for (const s of await sql("SELECT * FROM settlement WHERE batch_id IS NOT NULL AND status NOT IN ('SUCCESS','DENIED','CANCELED','FAILED') AND created_at > now() - interval '1 day'")) {
     const r = await getPayout(s.batch_id);
-    if (r.ok) await sql('UPDATE settlement SET status=$2 WHERE id=$1', [s.id, r.body?.batch_header?.batch_status]);
+    if (r.ok) {
+      const st = r.body?.batch_header?.batch_status;
+      await sql('UPDATE settlement SET status=$2 WHERE id=$1', [s.id, st]);
+      // A denied or cancelled batch moved no money: its covers go back to be settled again.
+      if (['DENIED', 'CANCELED'].includes(st)) await sql('UPDATE cover SET settlement_id=NULL WHERE settlement_id=$1', [s.id]);
+    }
   }
 }
 

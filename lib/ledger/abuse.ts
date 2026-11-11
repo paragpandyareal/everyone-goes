@@ -47,7 +47,7 @@ export async function hardCapProblems(pledgeId: string): Promise<string[]> {
 }
 
 export async function linkRequestProblems(helpToken: string): Promise<string | null> {
-  const open = await one("SELECT id FROM help_request WHERE help_token=$1 AND status IN ('NEW','PROPOSED','CHARGING','NEEDS_SPONSOR') LIMIT 1", [helpToken]);
+  const open = await one("SELECT id FROM help_request WHERE help_token=$1 AND status IN ('NEW','PROPOSED','CHARGING','NEEDS_SPONSOR','CHARGE_UNKNOWN') LIMIT 1", [helpToken]);
   if (open) return 'You already have a message we are looking at. We will reply here.';
   const day = await one("SELECT count(*)::int AS n FROM help_request WHERE help_token=$1 AND created_at > now() - interval '1 day'", [helpToken]);
   if (day.n >= LIMITS.requestsPerLinkPerDay) return 'You have sent several messages today. Please wait until tomorrow, or speak to the school office.';

@@ -33,6 +33,10 @@ export async function chargeVault(coverId: string, publicRef: string, vaultId: s
   }, { requestId: `eg-cover-${coverId}` });
 }
 
+export async function getCapture(captureId: string) {
+  return pp('coverfund', 'GET', `/v2/payments/captures/${captureId}`);
+}
+
 export async function refundCapture(captureId: string, coverId: string) {
   return pp('coverfund', 'POST', `/v2/payments/captures/${captureId}/refund`, {}, { requestId: `eg-refund-${coverId}` });
 }
