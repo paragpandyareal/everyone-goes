@@ -154,21 +154,21 @@ export default function Home() {
         <div className="grid gap-4 lg:grid-cols-3">
           <article className="card p-5">
             <div className="eyebrow">The problem</div>
-            <h2 className="mt-1 text-xl font-extrabold">Families who can’t pay stay silent</h2>
-            <p className="mt-2 text-sm text-muted">Asking for help in front of a teacher feels like begging, so children quietly miss out, or teachers pay from their own pocket.</p>
+            <h2 className="mt-1 text-xl font-extrabold">The families who most need help are the ones who never ask</h2>
+            <p className="mt-2 text-sm text-muted">Asking means outing yourself to the teacher. So children quietly miss out.</p>
             <ul className="mt-3 space-y-2 text-sm">
-              <li><b className="text-lg">93%+</b> of teachers have students whose families can’t afford what they need <span className="text-xs text-muted">(AdoptAClassroom.org, 2025)</span></li>
-              <li><b className="text-lg">$895</b> spent by teachers from their own money in 2024–25, on average <span className="text-xs text-muted">(same survey)</span></li>
-              <li><b>California law</b> already says no pupil may miss a field trip for lack of funds <span className="text-xs text-muted">(Education Code 35330)</span></li>
+              <li><b className="text-lg">More than 93%</b> of teachers have students whose families can’t afford all their school supplies <span className="text-xs text-muted">(AdoptAClassroom.org, 2026 Teacher Impact Survey)</span></li>
+              <li><b className="text-lg">$895</b> spent by teachers of their own money on school supplies in 2024–25, on average, up 49% from $600 in 2015. Their school’s median supply budget is $200, and 97% say it isn’t enough <span className="text-xs text-muted">(AdoptAClassroom.org, 2025 Teacher Spending Survey, 3,700 teachers)</span></li>
+              <li><b>California already promises</b> no pupil misses a field trip for lack of funds, and tells school boards to line up community groups to pay <span className="text-xs text-muted">(Education Code 35330, California only)</span>. Nobody built the tool. We did.</li>
             </ul>
           </article>
           <article className="card p-5">
             <div className="eyebrow">How we solve it</div>
-            <h2 className="mt-1 text-xl font-extrabold">Help hidden inside a normal payment</h2>
+            <h2 className="mt-1 text-xl font-extrabold">Everyone gets the same invoice. Only one family knows theirs was covered.</h2>
             <ol className="mt-3 space-y-3 text-sm">
               {[
                 ['PayPal invoice', 'Every family gets the same invoice, with a private “can’t pay?” link.'],
-                ['Claude reads it', 'Any language. Names and details are removed first. It suggests a cover, a part cover, more time, or the safeguarding lead.'],
+                ['Claude reads it', 'Any language. Names and details are removed first. It suggests a full cover, a part cover, more time, or the safeguarding lead.'],
                 ['A volunteer approves', 'They see a code and $45. Never a name or the message.'],
                 ['A sponsor’s PayPal pays', 'A local business saved its PayPal once. The payment is recorded like cash at the office.'],
               ].map(([t, d], i) => <li key={t} className="flex gap-3"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-ink text-xs font-extrabold text-white">{i + 1}</span><span><b>{t}.</b> <span className="text-muted">{d}</span></span></li>)}
@@ -176,12 +176,13 @@ export default function Home() {
           </article>
           <article className="card p-5">
             <div className="eyebrow">What’s in it for PayPal</div>
-            <h2 className="mt-1 text-xl font-extrabold">A trusted channel into every class</h2>
+            <h2 className="mt-1 text-xl font-extrabold">Every school letter brings families to PayPal</h2>
             <ul className="mt-3 space-y-2.5 text-sm">
               <li><b>New customers through the school letter.</b> <span className="text-muted">Each collection puts about 25 families and a local business on PayPal.</span></li>
-              <li><b>Saved accounts, repeat payments.</b> <span className="text-muted">Sponsors save PayPal once (Vault) and are charged per child helped, while away.</span></li>
+              <li><b>Saved accounts, repeat payments.</b> <span className="text-muted">Sponsors save PayPal once (Vault) and are charged per child helped, even while away.</span></li>
               <li><b>The Agent Toolkit doing real work.</b> <span className="text-muted">Claude creates, reads, pauses and records PayPal invoices, with code checks and a human approving every charge.</span></li>
-              <li><b>Revenue, as a scenario.</b> <span className="text-muted">At 10,000 organisers, about $3.9M a year in invoice fees. The bigger prize is the channel. Families never pay a fee.</span></li>
+              <li><b>Revenue, as a scenario.</b> <span className="text-muted">10,000 organisers × 6 collections a year × 25 families × $60, at PayPal’s invoice rate (3.49% + $0.49) ≈ $3.9M a year. Less if families pay by card. The bigger prize is the channel.</span></li>
+              <li><b>Who pays the fee.</b> <span className="text-muted">Never the family. As with any PayPal invoice, the organiser’s account absorbs it, about $2.60 on $60. Tips families add, and PayPal’s charity rate for registered PTAs, can offset it.</span></li>
             </ul>
           </article>
         </div>

@@ -12,7 +12,7 @@
 
 | | |
 |---|---|
-| A teacher with six unpaid rows can't tell who forgot and who can't afford it | More than 93% of teachers surveyed have students whose families cannot afford all the necessary school supplies, and they spent **$895** of their own money on average in 2024–25 (AdoptAClassroom.org) |
+| A teacher with six unpaid rows can't tell who forgot and who can't afford it | More than 93% of teachers have students whose families cannot afford all the necessary school supplies (AdoptAClassroom.org, 2026 Teacher Impact Survey). Teachers spent **$895** of their own money on school supplies on average in 2024–25, up 49% from $600 in 2015 (AdoptAClassroom.org, 2025 Teacher Spending Survey of 3,700 teachers) |
 | Asking in public is humiliating, so families stay silent and children stay home | California Education Code 35330(b): "A pupil shall not be prevented from making the field trip or excursion because of lack of sufficient funds", and the board "shall coordinate efforts of community service groups to supply funds for pupils in need" |
 | School payment portals charge families fees and have no hardship path | Lunch payment platforms charge "$2.37, or 4.4%" per transaction on average (CFPB, 2024) |
 
