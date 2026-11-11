@@ -67,6 +67,8 @@ export function classifyCharge(r: any): ChargeOutcome {
   return 'UNKNOWN';
 }
 
+const KNOWN_DECLINES = ['INSTRUMENT_DECLINED', 'PAYER_ACTION_REQUIRED', 'TRANSACTION_REFUSED', 'PAYEE_ACCOUNT_RESTRICTED', 'PAYER_ACCOUNT_RESTRICTED'];
+
 async function chargeWithReplay(coverId: string, ref: string, vaultId: string, amountCents: number) {
   let last: any = null;
   for (let i = 0; i < 3; i++) {
@@ -257,7 +259,9 @@ export async function reconcileCovers() {
       await sql("UPDATE pledge SET status=CASE WHEN used_cents >= cap_cents THEN 'EXHAUSTED' ELSE status END WHERE id=$1", [c.pledge_id]);
       await sql("UPDATE help_request SET status='COVERED', fallback=NULL, updated_at=now() WHERE id=$1", [reqId]);
       if (outcome === 'CAPTURED') await recordCover(c.id).catch(() => {});
-    } else if (outcome === 'DECLINED') await resolveDecline(c);
+    } else if (outcome === 'DECLINED' && (r?.ok || KNOWN_DECLINES.includes(r?.body?.details?.[0]?.issue))) await resolveDecline(c);
+    // Any other 4xx on a replay is not proof of a decline (the first attempt may have charged), so a person checks PayPal.
+    else if (outcome === 'DECLINED') await sql("UPDATE cover SET status='NEEDS_TREASURER', error=$2 WHERE id=$1 AND status='CHARGE_UNKNOWN'", [c.id, `replay answered ${r?.status} ${r?.body?.details?.[0]?.issue || r?.body?.name || ''}: check PayPal before acting`]);
   }
   // Requests stuck in CHARGING with no cover behind them (crash before charging) go back to the coordinator.
   const covered = new Set((await sql('SELECT sealed_request FROM cover')).map((c) => { try { return unseal(c.sealed_request); } catch { return ''; } }));
@@ -330,5 +334,8 @@ export const isPaidStatus = isPaid;
 export async function purgeOldMessages() {
   const old = await sql("SELECT id FROM help_request WHERE created_at < now() - interval '30 days' AND raw_enc <> 'deleted'");
   for (const r of old) await sql("UPDATE help_request SET raw_enc='deleted' WHERE id=$1", [r.id]);
+  // The redacted copies and the demo-only AI reasoning go too, so the family's words are not kept past 30 days anywhere.
+  await sql("UPDATE lead_item SET text_redacted='(message deleted after 30 days)' WHERE created_at < now() - interval '30 days' AND text_redacted <> '(message deleted after 30 days)'");
+  await sql("UPDATE agent_run SET trace_json=(SELECT COALESCE(jsonb_agg(e - 'demo'), '[]'::jsonb) FROM jsonb_array_elements(trace_json) e) WHERE created_at < now() - interval '30 days' AND trace_json::text LIKE '%\"demo\"%'");
   return old.length;
 }

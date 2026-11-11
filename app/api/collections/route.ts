@@ -1,4 +1,4 @@
-import { json, wrap, limited } from '@/lib/api';
+import { json, wrap, limited, requireStaff } from '@/lib/api';
 import { draftCollection, type Draft } from '@/lib/agent/small';
 import { createCollection, issueInvoices, ROOM12, SOCCER } from '@/lib/ledger/collections';
 import { sql, one } from '@/lib/db';
@@ -8,6 +8,7 @@ export const dynamic = 'force-dynamic';
 
 // POST {sentence} -> AI draft (teacher confirms). POST {confirm: draft, sentence, roster} -> creates and issues PayPal invoices.
 export const POST = wrap(async (req: Request) => {
+  { const gate = requireStaff(req); if (gate) return gate; }
   const body = await req.json();
   if (body.confirm) {
     const lim = limited(req, 'collect', 3); if (lim) return lim;
@@ -33,6 +34,7 @@ export const POST = wrap(async (req: Request) => {
 });
 
 export const PUT = wrap(async (req: Request) => {
+  { const gate = requireStaff(req); if (gate) return gate; }
   const { id } = await req.json();
   if (!(await one('SELECT id FROM collection WHERE id=$1', [String(id)]))) return json({ error: 'Unknown collection' }, 404);
   await sql("INSERT INTO kv (k, v) VALUES ('active_collection', $1) ON CONFLICT (k) DO UPDATE SET v=$1", [id]);

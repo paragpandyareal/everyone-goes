@@ -1,5 +1,6 @@
 // One small database layer. Postgres when hosted (DATABASE_URL), PGlite (Postgres in process) locally.
 // PRD 5.1 said Prisma plus Docker. Docker is not needed, so plain SQL is used, with the same Postgres dialect in both places.
+import crypto from 'node:crypto';
 import { SCHEMA } from './schema';
 
 type Row = Record<string, any>;
@@ -32,4 +33,4 @@ export async function sql(text: string, params: any[] = []): Promise<Row[]> {
 export async function one(text: string, params: any[] = []): Promise<any> {
   return (await sql(text, params))[0];
 }
-export const newId = (prefix: string) => `${prefix}_${Math.random().toString(36).slice(2, 10)}`;
+export const newId = (prefix: string) => `${prefix}_${crypto.randomBytes(6).toString('base64url').toLowerCase().replace(/[^a-z0-9]/g, '').padEnd(8, '0').slice(0, 8)}`; // unguessable ids (pledge pages, requests)

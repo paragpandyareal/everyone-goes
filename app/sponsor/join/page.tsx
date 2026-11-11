@@ -38,7 +38,8 @@ export default function Join() {
             You authorise <b>Room 12 PTA Cover Fund</b> to charge this PayPal account each time a contribution is covered from your pledge, up to <b>{usd(terms.cap_cents, false)}</b> in total and <b>{usd(terms.per_child_cap_cents, false)}</b> per child. You get a receipt for every charge and can stop at any time with one click.
           </div>
           <button className="btn btn-primary w-full" disabled={busy} onClick={go}>{busy ? 'Opening PayPal…' : 'Agree and save with PayPal'}</button>
-          <div className="text-center text-xs text-muted">Nothing is charged now. PayPal saves your account for this pledge only.</div>
+          <div className="text-center text-xs text-muted">Nothing is charged now. PayPal saves your account for this pledge only. Next: PayPal opens, you approve, and you come back here.</div>
+          <div className="rounded-2xl bg-cream p-3 text-xs text-muted"><b className="text-ink">Tax.</b> If this PTA is a registered 501(c)(3) charity, your covers may be tax-deductible. Some businesses record them as a sponsorship expense instead. You never choose a child, and you receive nothing in return. Ask your accountant; Everyone Goes does not give tax advice.</div>
         </div>
       ) : null}
       {err ? <Notice tone="coral">{err}</Notice> : null}

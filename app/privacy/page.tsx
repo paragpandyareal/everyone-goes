@@ -24,6 +24,22 @@ export default function Privacy() {
         <h1 className="text-3xl font-black">Who sees what</h1>
         <p className="font-semibold text-muted">Help is hidden inside a routine payment. No single person, and no single PayPal login, can join a family to a cover.</p>
       </div>
+      <div className="card p-4">
+        <div className="font-black">One family, five views</div>
+        <p className="text-sm text-muted">The same moment, F-07’s contribution being covered, as each person sees it.</p>
+        <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-5">
+          {[
+            ['Teacher', 'Zofia · ✓ Paid', 'Same as every other paid row.'],
+            ['Coordinator', 'F-07 · hardship · cover $45', 'No name, no message, no language.'],
+            ['Sponsor', '$45 covered · capture 5TY…', 'No name, code or class.'],
+            ['Treasurer (PayPal)', 'OTHER $45 · “Received, ref EG-…”', 'Identical to the office cash rows.'],
+            ['AI', '“Przepraszam, … nie damy rady …”', 'Names on the roster, emails, phones and addresses removed first. Could only propose.'],
+          ].map(([who, sees, note]) => (
+            <div key={who} className="rounded-2xl bg-cream p-3"><div className="text-xs font-extrabold uppercase text-muted">{who}</div><div className="mono mt-1 font-bold">{sees}</div><div className="mt-1 text-xs text-muted">{note}</div></div>
+          ))}
+        </div>
+      </div>
+
       <div className="card overflow-x-auto">
         <table className="w-full min-w-[640px] text-left text-sm">
           <thead className="bg-cream"><tr><th className="p-3">Role</th><th className="p-3">Sees</th><th className="p-3">Never sees</th></tr></thead>
@@ -31,6 +47,9 @@ export default function Privacy() {
         </table>
       </div>
 
+      <details className="card p-4">
+        <summary className="cursor-pointer list-none font-black">Details for technical judges: the two PayPal accounts and the guardrails in code ▸</summary>
+        <div className="mt-3">
       <div className="grid gap-4 md:grid-cols-2">
         <div className="card p-4 text-sm">
           <div className="font-black">Two PayPal accounts, on purpose</div>
@@ -59,21 +78,8 @@ export default function Privacy() {
         </div>
       </div>
 
-      <div className="card p-4">
-        <div className="font-black">One family, five views</div>
-        <p className="text-sm text-muted">The same moment, F-07’s contribution being covered, as each person sees it.</p>
-        <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-5">
-          {[
-            ['Teacher', 'Zofia · ✓ Paid', 'Same as every other paid row.'],
-            ['Coordinator', 'F-07 · hardship · cover $45', 'No name, no message, no language.'],
-            ['Sponsor', '$45 covered · capture 5TY…', 'No name, code or class.'],
-            ['Treasurer (PayPal)', 'OTHER $45 · “Received, ref EG-…”', 'Identical to the office cash rows.'],
-            ['AI', '“Przepraszam, … nie damy rady …”', 'Names on the roster, emails, phones and addresses removed first. Could only propose.'],
-          ].map(([who, sees, note]) => (
-            <div key={who} className="rounded-2xl bg-cream p-3"><div className="text-xs font-extrabold uppercase text-muted">{who}</div><div className="mono mt-1 font-bold">{sees}</div><div className="mt-1 text-xs text-muted">{note}</div></div>
-          ))}
         </div>
-      </div>
+      </details>
 
       <div className="card p-4">
         <div className="font-black">Evaluation of the help desk agent</div>

@@ -26,6 +26,13 @@ const famAt = async (collectionId: string, idx: number) => one('SELECT f.*, i.id
 export async function seedClass() {
   for (const t of ['approval', 'cover', 'help_request', 'lead_item', 'invoice', 'family', 'collection', 'ptrace', 'agent_run', 'settlement']) await sql(`DELETE FROM ${t}`);
   await sql("DELETE FROM kv WHERE k LIKE 'qr:%' OR k IN ('active_collection','trip_collection')");
+  // A fresh class starts with fresh sponsor budgets: old seeded pledges are retired (their saved PayPal accounts removed),
+  // and visitor pledges keep their saved account but start the term at $0 used, since their covers were cleared above.
+  for (const p of await sql("SELECT id, vault_id FROM pledge WHERE seeded=true AND status <> 'STOPPED'")) {
+    if (p.vault_id) await deletePaymentToken(p.vault_id).catch(() => {});
+    await sql("UPDATE pledge SET status='STOPPED', vault_id=NULL WHERE id=$1", [p.id]);
+  }
+  await sql("UPDATE pledge SET used_cents=0, status=CASE WHEN status='EXHAUSTED' THEN 'ACTIVE' ELSE status END WHERE seeded=false");
   const soccer = await createCollection({ title: 'Spring soccer registration', kind: 'CLUB_FEE', amount_cents: 12000, due_date: null, item_name: 'Requested contribution, spring soccer registration', warning: null }, 'Spring soccer registration, $120 requested contribution', SOCCER);
   const trip = await createCollection({ title: 'Museum trip, Friday', kind: 'TRIP', amount_cents: 4500, due_date: null, item_name: 'Requested contribution, museum trip', warning: null }, 'Museum trip, Friday, $45 requested contribution', ROOM12, { heroIndex: HERO_INDEX });
   await sql("INSERT INTO kv (k, v) VALUES ('active_collection', $1), ('trip_collection', $1) ON CONFLICT (k) DO UPDATE SET v=EXCLUDED.v", [trip]);

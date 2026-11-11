@@ -34,7 +34,7 @@ export default function SponsorImpact({ params }: { params: Promise<{ id: string
       </div>
       <div className="card p-4">
         <div className="font-black">Receipts</div>
-        <div className="text-sm text-muted">Every cover is one PayPal payment from your account. No names, codes or classes, by design.{data.owner ? '' : ' Capture IDs are shown only to the sponsor, in the browser they joined from.'}</div>
+        <div className="text-sm text-muted">Every cover is one PayPal payment from your account. No names, codes or classes, by design. Keep these for your records: you received no goods or services in return. The PTA issues any official tax receipt.{data.owner ? '' : ' Capture IDs are shown only to the sponsor, in the browser they joined from.'}</div>
         <ul className="mt-2 divide-y divide-line text-sm">
           {data.covers.length === 0 ? <li className="py-2 text-muted">No covers yet.</li> : null}
           {data.covers.map((c: any, i: number) => (

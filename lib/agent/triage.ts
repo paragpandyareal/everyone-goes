@@ -13,10 +13,11 @@ import { mockTriage } from './mock';
 import { softSignals } from '../ledger/abuse';
 
 const MAX_TOOLS = 10, MAX_MS = 60_000;
+export const SAFE_REPLY = 'Thank you for your message. We have received it, and someone from the school will be in touch privately.';
 // Safety words in the eight eval languages. A match copies the message to the school lead in addition to the AI's decision
 // (it never cancels help, so a false alarm like "he hurt his back at work" cannot block a cover).
 export const SAFEGUARDING_BACKSTOP = new RegExp([
-  String.raw`\b(hits? (me|him|her)|hitting|beats? (me|him|her)|hurts? (me|him|her)|abus(e|ed|ing)|touch(ed|es)? (me|him|her)|(scared|afraid) to go home|not safe at home|unsafe|bruises?|locked (in|up)|no food at home|alone at night|kill|suicid|self[- ]harm)\b`,
+  String.raw`\b(hit(s|ting)? (me|him|her|us|my|our)|beat(s|ing)? (me|him|her|us|my|our)|hurt(s|ing)? (me|him|her|us)|abus|molest|touch(ed|es|ing)? (me|him|her|my|our)|(scared|afraid|frightened) (to go|of going) home|(scared|afraid|frightened) of (his|her|their|my|our) (dad|father|mum|mom|mother|uncle|stepdad|stepfather|stepmum|stepmom|boyfriend|girlfriend)|not safe at home|unsafe|bruis|locked (in|up)|no food at home|alone at night|kill|suicid|self[- ]?harm|cutting (him|her|my|them)sel)`,
   'le pega|me pega|abus[oa]|moretones|miedo de (volver|ir) a casa|bije (go|ją|mnie)|przemoc|siniaki|boi się wrócić do domu',
   'đánh (con|cháu|tôi)|bạo hành|sợ về nhà|bầm tím',
   'يضرب|ضربه|يضربه|تعنيف|خائف من العودة',
@@ -120,7 +121,7 @@ export async function applyOutcome(ctx: TriageCtx, name: string, input: any, fal
     await sql("UPDATE help_request SET status=$11, category=$2, kind_of_help=$3, amount_cents=$4, pledge_id=$5, summary=$6, reply_text=$7, reply_en=$8, confidence=$9, fallback=$10, updated_at=now() WHERE id=$1",
       [id, input.category, input.kind_of_help, input.amount_cents, input.pledge_id && input.pledge_id !== 'NONE' ? input.pledge_id : null, input.coordinator_summary, input.reply_to_parent, input.reply_english, input.confidence, fallback || null, input.pledge_id && input.pledge_id !== 'NONE' ? 'PROPOSED' : 'NEEDS_SPONSOR']);
   } else if (name === 'route_to_lead') {
-    await sql("UPDATE help_request SET status='ROUTED_TO_LEAD', category='SAFEGUARDING', kind_of_help='NONE', summary='Routed to the school lead', reply_text=$2, reply_en=$3, updated_at=now() WHERE id=$1", [id, input.reply_to_parent, input.reply_english]);
+    await sql("UPDATE help_request SET status='ROUTED_TO_LEAD', category='SAFEGUARDING', kind_of_help='NONE', summary='Routed to the school lead', reply_text=$2, reply_en=$2, updated_at=now() WHERE id=$1", [id, SAFE_REPLY]);
     await sql('INSERT INTO lead_item (id, request_id, text_redacted) VALUES ($1,$2,$3)', [newId('lead'), id, `${input.concern_summary}\n\nMessage (redacted): ${ctx.redacted}`]);
   } else if (name === 'answer_question') {
     const status = input.category === 'TIMING' || input.category === 'NOT_ATTENDING' ? 'NEEDS_STAFF' : 'ANSWERED';
@@ -138,7 +139,7 @@ async function genericCard(ctx: TriageCtx, reason: string) {
 }
 
 export async function triage(requestId: string): Promise<void> {
-  const live = liveMode() && (await underLimit());
+  const live = liveMode() && (await underLimit('triage'));
   const runId = await startRun('TRIAGE', live ? 'live' : 'mock');
   let ctx: TriageCtx;
   try { ctx = await loadCtx(requestId, runId); } catch (e: any) {

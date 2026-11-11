@@ -8,4 +8,4 @@ export const dynamic = 'force-dynamic';
 function demoLogins(): { role: string; email: string; password: string }[] {
   try { return JSON.parse(process.env.DEMO_LOGINS || '[]'); } catch { return []; }
 }
-export const GET = async () => json({ ok: true, trips: hasApp('trips'), coverfund: hasApp('coverfund'), ai: liveMode() ? MODEL : 'off', demo: process.env.DEMO_MODE !== '0', logins: demoLogins() });
+export const GET = async () => json({ ok: true, trips: hasApp('trips'), coverfund: hasApp('coverfund'), ai: liveMode() ? MODEL : 'off', demo: process.env.DEMO_MODE === '1', logins: process.env.DEMO_MODE === '1' ? demoLogins() : [] });

@@ -8,10 +8,13 @@ export const liveMode = () => process.env.AGENT_MODE !== 'mock' && !!process.env
 let _client: Anthropic | null = null;
 const client = () => (_client ||= new Anthropic({ timeout: 90_000, maxRetries: 1 }));
 
-export async function underLimit(): Promise<boolean> {
+// Two separate AI budgets. Family help messages (TRIAGE) have their own, so visitors drafting collections or pledges
+// can never use up the AI that reads families' messages.
+export async function underLimit(pool: 'triage' | 'tools' = 'tools'): Promise<boolean> {
   const hour = Number(process.env.AGENT_RUNS_PER_HOUR || 30), day = Number(process.env.AGENT_RUNS_PER_DAY || 250);
-  const r = await one("SELECT count(*) FILTER (WHERE created_at > now() - interval '1 hour')::int AS h, count(*)::int AS d FROM agent_run WHERE mode='live' AND created_at > now() - interval '1 day'");
-  return (r?.h || 0) < hour && (r?.d || 0) < day;
+  const [h, d] = pool === 'triage' ? [hour, day] : [Math.max(5, Math.floor(hour / 2)), Math.max(20, Math.floor(day / 2))];
+  const r = await one(`SELECT count(*) FILTER (WHERE created_at > now() - interval '1 hour')::int AS h, count(*)::int AS d FROM agent_run WHERE mode='live' AND created_at > now() - interval '1 day' AND kind ${pool === 'triage' ? "= 'TRIAGE'" : "<> 'TRIAGE'"}`);
+  return (r?.h || 0) < h && (r?.d || 0) < d;
 }
 
 export async function create(params: Record<string, unknown>): Promise<any> {

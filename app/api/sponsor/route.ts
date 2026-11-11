@@ -64,10 +64,13 @@ export const POST = wrap(async (req: Request) => {
     const p = await one('SELECT * FROM pledge WHERE id=$1', [b.pledgeId]);
     if (!p?.setup_token) return json({ error: 'Unknown pledge' }, 404);
     if (p.vault_id) return json({ ok: true, pledgeId: p.id });
+    // Only a new pledge, from the browser that made it, can be finished. A stopped pledge can never come back to life.
+    if (p.status !== 'PENDING') return json({ error: 'This pledge is not waiting to be saved.' }, 409);
+    if (!isOwner(req, p) && !isAdmin(req)) return json({ error: 'Finish saving from the browser you started in.' }, 403);
     const r = await exchangeSetupToken(p.setup_token);
     await ptrace({ scope: `pledge:${p.id}`, actor: 'sponsor', tool: 'create_payment_token', via: 'REST', summary: r.ok ? 'PayPal account saved. Nothing charged.' : `Failed ${r.status}`, paypalId: r.body?.customer?.id, debugId: r.debugId, ok: r.ok });
     if (!r.ok) return json({ error: `PayPal did not save the account (${r.status}, debug ${r.debugId}). Did you approve on PayPal?` }, 502);
-    await sql("UPDATE pledge SET vault_id=$2, customer_id=$3, status='ACTIVE' WHERE id=$1", [p.id, r.body.id, r.body.customer?.id || null]);
+    await sql("UPDATE pledge SET vault_id=$2, customer_id=$3, status='ACTIVE', setup_token=NULL WHERE id=$1 AND status='PENDING'", [p.id, r.body.id, r.body.customer?.id || null]);
     await sql('UPDATE sponsor SET paypal_email=$2 WHERE id=$1', [p.sponsor_id, r.body.payment_source?.paypal?.email_address || null]);
     return json({ ok: true, pledgeId: p.id });
   }
@@ -77,6 +80,7 @@ export const POST = wrap(async (req: Request) => {
     if (!isOwner(req, p) && !isAdmin(req)) return json({ error: 'Only the sponsor who made this pledge can stop it, from the browser they used.' }, 403);
     if (p.vault_id) {
       const r = await deletePaymentToken(p.vault_id);
+      if (!r.ok && r.status !== 404) return json({ error: `PayPal could not remove the saved account yet (${r.status}). Nothing will be charged; please try again.` }, 502);
       await ptrace({ scope: `pledge:${p.id}`, actor: 'sponsor', tool: 'delete_payment_token', via: 'REST', summary: `Saved PayPal account deleted (${r.status})`, debugId: r.debugId, ok: r.ok || r.status === 404 });
     }
     await sql("UPDATE pledge SET status='STOPPED', vault_id=NULL WHERE id=$1", [p.id]);

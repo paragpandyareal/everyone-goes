@@ -7,7 +7,7 @@ export default function Staff() {
   const [err, setErr] = useState<string | null>(null);
   async function go() {
     setErr(null);
-    try { await post('/api/staff', { passcode: code }); window.location.href = new URLSearchParams(window.location.search).get('next') || '/coordinator'; } catch (e: any) { setErr(e.message); }
+    try { await post('/api/staff', { passcode: code }); const next = new URLSearchParams(window.location.search).get('next') || ''; window.location.href = next.startsWith('/') && !next.startsWith('//') && !next.includes(':') ? next : '/coordinator'; /* only a path on this site */ } catch (e: any) { setErr(e.message); }
   }
   return (
     <div className="mx-auto max-w-sm space-y-4 py-8">

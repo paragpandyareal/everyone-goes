@@ -30,7 +30,8 @@ export function clientIp(req: Request): string {
 export const isAdmin = (req: Request) => !!process.env.ADMIN_TOKEN && req.headers.get('x-admin-token') === process.env.ADMIN_TOKEN;
 
 // Staff routes (coordinator, treasurer, school lead). Open in DEMO_MODE=1 for judges; otherwise need the staff session cookie.
-export const demoMode = () => process.env.DEMO_MODE !== '0'; // demo by default; a real school sets DEMO_MODE=0
+// The open judge demo must be switched on on purpose (DEMO_MODE=1). A missing setting means staff pages stay closed.
+export const demoMode = () => process.env.DEMO_MODE === '1';
 export function staffSessionValue(): string {
   return crypto.createHmac('sha256', process.env.APPROVAL_SIGNING_KEY || 'dev-only-approval-key-change-me').update(`staff:${process.env.STAFF_PASSCODE || ''}`).digest('base64url');
 }

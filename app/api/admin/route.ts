@@ -1,5 +1,5 @@
 // Seeding steps (admin only) and the public demo reset (once per minute).
-import { json, wrap, isAdmin, limited } from '@/lib/api';
+import { json, wrap, isAdmin, limited, demoMode } from '@/lib/api';
 import { seedClass, seedSponsorStart, seedCovers, seedOffice, seedMessages, parentLinks, resetDemo } from '@/lib/ledger/seed';
 
 export const dynamic = 'force-dynamic';
@@ -13,6 +13,8 @@ export const GET = wrap(async (req: Request) => {
 export const POST = wrap(async (req: Request) => {
   const { step, keepSponsors } = await req.json();
   if (step === 'reset') {
+    // The public reset exists only for the judge demo. In a real school it would wipe requests and hand back sponsor budget.
+    if (!demoMode() && !isAdmin(req)) return json({ error: 'admin only' }, 403);
     const lim = limited(req, 'reset', 2); if (lim) return lim;
     return json(await resetDemo({ keepSponsors: !(keepSponsors === false && isAdmin(req)) }));
   }

@@ -17,4 +17,12 @@ describe('safeguarding backstop (code, all eval languages)', () => {
     for (const t of ['My husband hurt his back and lost his job', 'We were hit hard by bills this month', 'Przepraszam, w tym miesiącu nie damy rady, mąż stracił pracę.'])
       expect(SAFEGUARDING_BACKSTOP.test(t), t).toBe(false);
   });
+  it('catches word forms a strict word match would miss (review round 3)', () => {
+    for (const t of ['She talks about suicide', 'he has been suicidal', 'her uncle is abusive', 'he came home bruised', 'she was molested', 'my partner beats my son', 'he is frightened of his stepdad', 'she has been self harming'])
+      expect(SAFEGUARDING_BACKSTOP.test(t), t).toBe(true);
+  });
+  it('still ignores everyday words that contain the stems', () => {
+    for (const t of ['The trip was a hit with my son last year', 'Can I pay the rest on Friday?', 'We cannot afford it, sorry, he is upset'])
+      expect(SAFEGUARDING_BACKSTOP.test(t), t).toBe(false);
+  });
 });

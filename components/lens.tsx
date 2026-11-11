@@ -12,8 +12,11 @@ export function LensProvider({ children }: { children: React.ReactNode }) {
   const [demo, setDemo] = useState(false);
   const [on, setOn] = useState(false);
   useEffect(() => {
-    try { setOn(localStorage.getItem('eg-lens') === '1'); } catch {}
+    const read = () => { try { setOn(localStorage.getItem('eg-lens') === '1'); } catch {} };
+    read();
+    window.addEventListener('eg-lens', read); // the tour turns the lens on from a link click
     fetch('/api/health').then((r) => r.json()).then((h) => setDemo(!!h.demo)).catch(() => {});
+    return () => window.removeEventListener('eg-lens', read);
   }, []);
   const set = (v: boolean) => { setOn(v); try { localStorage.setItem('eg-lens', v ? '1' : '0'); } catch {} };
   return <Ctx.Provider value={{ demo, on: demo && on, set }}>{children}</Ctx.Provider>;
@@ -49,5 +52,42 @@ export function LensOnly({ children, note }: { children: React.ReactNode; note?:
       </div>
       {children}
     </section>
+  );
+}
+
+// The guided judge tour: four steps across three pages, with a small bar that says where you are and what to do.
+const TOUR = [
+  { match: (p: string) => p === '/teacher', text: 'Six families have not paid. The teacher can’t tell who forgot and who can’t afford it.', next: 'help', nextLabel: 'Be Zofia’s parent' },
+  { match: (p: string) => p.startsWith('/help/'), text: 'Tap “Polish”, then “Send privately”. Claude reads it and replies in Polish within seconds.', next: '/coordinator', nextLabel: 'Be the volunteer' },
+  { match: (p: string) => p === '/coordinator', text: 'Claude suggests covering $45. The amber panel shows its reasoning. Press “Approve $45.00” to charge the sponsor’s saved PayPal.', next: '/teacher', nextLabel: 'Back to the teacher' },
+  { match: (p: string) => p === '/teacher', text: 'Zofia’s row now says Paid, exactly like the families who paid cash at the office. Nobody can tell.', next: '/privacy', nextLabel: 'See who sees what' },
+];
+
+export function startTour(step = 1) { try { localStorage.setItem('eg-tour', String(step)); localStorage.setItem('eg-lens', '1'); } catch {} window.dispatchEvent(new Event('eg-lens')); }
+
+export function TourBar() {
+  const [step, setStep] = useState(0);
+  const [path, setPath] = useState('');
+  const [help, setHelp] = useState<string | null>(null);
+  useEffect(() => {
+    const read = () => { try { setStep(Number(localStorage.getItem('eg-tour') || 0)); } catch {} setPath(location.pathname); };
+    read();
+    const t = setInterval(read, 700);
+    fetch('/api/demo').then((r) => r.json()).then((d) => d?.hero?.token && setHelp(`/help/${d.hero.token}`)).catch(() => {});
+    return () => clearInterval(t);
+  }, []);
+  const s = TOUR[step - 1];
+  if (!step || !s || !s.match(path)) return null;
+  const go = (n: number) => { try { localStorage.setItem('eg-tour', String(n)); } catch {} setStep(n); };
+  const href = s.next === 'help' ? help || '/parent' : s.next;
+  return (
+    <div className="sticky top-[49px] z-20 border-b border-sun bg-sun-soft px-4 py-2 text-sm">
+      <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-3 gap-y-1">
+        <span className="rounded-full bg-sun px-2 py-0.5 text-xs font-extrabold text-white">Step {step} of 4</span>
+        <span className="flex-1 font-semibold text-ink">{s.text}</span>
+        <a href={href} onClick={() => go(step === 4 ? 0 : step + 1)} className="btn btn-primary !py-1 text-sm">{s.nextLabel} →</a>
+        <button onClick={() => go(0)} className="text-xs font-bold text-muted hover:text-ink">End tour</button>
+      </div>
+    </div>
   );
 }

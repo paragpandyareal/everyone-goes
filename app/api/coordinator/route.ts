@@ -37,7 +37,8 @@ export const POST = wrap(async (req: Request) => {
   }
   if (action === 'decline') {
     // "Pass to staff": a person follows up. Never a refusal shown to the family.
-    await sql("UPDATE help_request SET status='NEEDS_STAFF', fallback='Passed to staff by the coordinator', updated_at=now() WHERE id=$1 AND status IN ('PROPOSED','NEEDS_SPONSOR')", [requestId]);
+    // The AI's "it is all taken care of" reply must never reach the family when nothing was paid.
+    await sql("UPDATE help_request SET status='NEEDS_STAFF', fallback='Passed to staff by the coordinator', reply_text=$2, reply_en=$2, updated_at=now() WHERE id=$1 AND status IN ('PROPOSED','NEEDS_SPONSOR')", [requestId, 'Thank you for telling us. Someone from the school will get back to you here, privately.']);
     return json({ ok: true });
   }
   if (action === 'rematch') {
