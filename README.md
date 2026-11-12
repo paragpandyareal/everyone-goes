@@ -213,6 +213,7 @@ Run on the real PayPal sandbox on 12 Nov 2026 (Sydney time). Every spike passed,
 
 - **Claude (Anthropic API)** is the agent inside the product.
 - **Claude Code** (Claude Opus 5.5) wrote the code, tests, sandbox spikes, evaluation set and docs with the author. Independent Claude Code agents playing hackathon judges and a red team reviewed the build, and their findings were fixed.
+- **Microsoft Edge neural text-to-speech** (voice "Andrew", via edge-tts) reads the demo video voiceover. Claude Code drove a headless browser with Puppeteer to record the live demo and render the title cards.
 
 ## 14. Sources
 
